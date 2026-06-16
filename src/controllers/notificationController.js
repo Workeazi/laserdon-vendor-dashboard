@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useVendor } from '../context/VendorContext'
-import { getDrawingsByCompany } from '../models/drawingModel'
+import { useDrawings } from './drawingController'
 import { useRealtimeChannel } from '../hooks/useRealtimeChannel'
 import { toast } from 'react-toastify'
 import { useNavigate } from 'react-router-dom'
@@ -51,15 +51,7 @@ export function useNotifications() {
     }
   }, [readIds, vendorId, isLoaded])
 
-  const { data: rawDrawings = [], isLoading } = useQuery({
-    queryKey: ['drawings', companyId],
-    queryFn: async () => {
-      const { data, error } = await getDrawingsByCompany(companyId)
-      if (error) throw error
-      return data || []
-    },
-    enabled: !!companyId
-  })
+  const { data: rawDrawings = [], isLoading } = useDrawings()
 
   // Map drawing requests to a notification format, using readIds for state
   const notifications = rawDrawings.map(d => ({

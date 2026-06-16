@@ -15,18 +15,20 @@ export default function Sidebar({ isOpen, onClose }) {
     { to: '/customers', label: 'Customers', icon: 'group' },
     { to: '/payments', label: 'Payments', icon: 'account_balance_wallet' },
     { to: '/reports', label: 'Reports', icon: 'analytics' },
-    { to: '/notifications', label: 'Notifications', icon: 'notifications' },
+    { to: '/notifications', label: 'Notifications', icon: 'notifications', badge: unreadCount },
   ]
 
   return (
     <aside className={`w-[260px] h-screen fixed left-0 top-0 bg-inverse-surface border-r border-white/5 flex flex-col py-8 z-50 transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
       {/* Brand Identity */}
       <div className="px-8 mb-12">
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-2 h-6 bg-primary-fixed-dim rounded-full"></div>
-          <h1 className="text-headline-lg font-display-metrics font-bold text-white tracking-tight">LaserDon</h1>
-        </div>
-        <p className="text-label-caps font-label-caps text-surface-variant/40 tracking-[0.2em] mt-1 text-[10px]">VENDOR PORTAL</p>
+        <NavLink to="/dashboard" onClick={onClose} className="block hover:opacity-80 transition-opacity">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-2 h-6 bg-primary-fixed-dim rounded-full"></div>
+            <h1 className="text-headline-lg font-display-metrics font-bold text-white tracking-tight">LaserDon</h1>
+          </div>
+          <p className="text-label-caps font-label-caps text-surface-variant/40 tracking-[0.2em] mt-1 text-[10px]">VENDOR PORTAL</p>
+        </NavLink>
       </div>
 
       {/* Navigation Links */}

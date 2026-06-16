@@ -287,9 +287,13 @@ export default function DrawingDetailModal({ drawingId: propDrawingId, onClose }
           ) : (
             <div className="bg-green-50 border border-green-100 p-6 rounded-xl text-center shadow-sm h-full flex flex-col justify-center">
               <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-              <h3 className="text-[16px] font-bold text-gray-900">Quotation Submitted</h3>
+              <h3 className="text-[16px] font-bold text-gray-900">
+                {drawing?.status === 'approved' ? 'Quotation Approved' : 'Quotation Submitted'}
+              </h3>
               <p className="text-gray-600 text-xs mt-1 mb-4">
-                You have already submitted a quote for this request.
+                {drawing?.status === 'approved' 
+                  ? 'The customer has approved this quotation. It can no longer be edited.' 
+                  : 'You have already submitted a quote for this request.'}
               </p>
 
               <div className="bg-white rounded-lg p-3 border border-green-200 text-left mb-4 shadow-sm">
@@ -307,16 +311,18 @@ export default function DrawingDetailModal({ drawingId: propDrawingId, onClose }
                 )}
               </div>
 
-              <button 
-                onClick={() => {
-                  setIsEditing(true);
-                  setNotes(existingQuotation.notes || '');
-                }}
-                className="mx-auto bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 py-1.5 px-4 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all"
-              >
-                <span className="material-symbols-outlined text-[14px]">edit</span>
-                Edit Quotation
-              </button>
+              {drawing?.status !== 'approved' && (
+                <button 
+                  onClick={() => {
+                    setIsEditing(true);
+                    setNotes(existingQuotation.notes || '');
+                  }}
+                  className="mx-auto bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 py-1.5 px-4 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                >
+                  <span className="material-symbols-outlined text-[14px]">edit</span>
+                  Edit Quotation
+                </button>
+              )}
             </div>
           )}
         </div>

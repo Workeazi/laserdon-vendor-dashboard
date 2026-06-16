@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useVendor } from '../../context/VendorContext'
 import { useNotifications } from '../../controllers/notificationController'
 
@@ -8,6 +8,7 @@ export default function Header({ onMenuClick }) {
   const { notifications, unreadCount, markAsRead } = useNotifications()
   const [showDropdown, setShowDropdown] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [localAvatar, setLocalAvatar] = useState(() => vendorProfile?.id ? localStorage.getItem(`vendor_profile_image_${vendorProfile.id}`) : null)
 
@@ -34,16 +35,14 @@ export default function Header({ onMenuClick }) {
         </button>
         <span className="text-on-surface-variant text-body-md hidden sm:inline">Portal</span>
         <span className="material-symbols-outlined text-outline-variant hidden sm:inline">chevron_right</span>
-        <h2 className="font-headline-lg text-headline-lg text-on-surface truncate max-w-[200px] sm:max-w-none">Dashboard</h2>
+        <h2 className="font-headline-lg text-headline-lg text-on-surface truncate max-w-[200px] sm:max-w-none capitalize">
+          {location.pathname === '/' ? 'Dashboard' : location.pathname.split('/')[1] || 'Dashboard'}
+        </h2>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-8">
         {/* Global Search or Utilities */}
         <div className="flex items-center gap-2 sm:gap-4 text-on-surface-variant">
-          <button className="p-2 hover:bg-surface-container-low rounded-full transition-colors flex items-center justify-center">
-            <span className="material-symbols-outlined">search</span>
-          </button>
-          
           {/* Notifications Toggle */}
           <div className="relative">
             <button 
@@ -85,10 +84,6 @@ export default function Header({ onMenuClick }) {
               </div>
             )}
           </div>
-          
-          <button className="p-2 hover:bg-surface-container-low rounded-full transition-colors flex items-center justify-center">
-            <span className="material-symbols-outlined">help_outline</span>
-          </button>
         </div>
 
         {/* Profile Section */}

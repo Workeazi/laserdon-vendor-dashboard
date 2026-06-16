@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useVendor } from '../context/VendorContext'
 import { getDrawingsByCompany, getDrawingById, uploadDrawingFile, updateDrawingStatus } from '../models/drawingModel'
+import { getQuotationsByCompany } from '../models/quotationModel'
 
 export function useDrawings() {
   const { vendorProfile } = useVendor()
@@ -10,21 +11,47 @@ export function useDrawings() {
     queryFn: async () => {
       const { data, error } = await getDrawingsByCompany(vendorProfile.company_id)
       if (error) throw error
-      return data
+
+      const { data: quotes } = await getQuotationsByCompany(vendorProfile.company_id)
+
+      return data.map(d => {
+        let status = d.status
+        const myQuotes = quotes ? quotes.filter(q => q.drawing_request_id === d.id) : []
+        if (myQuotes.length > 0) {
+          const sortedQuotations = [...myQuotes].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          status = sortedQuotations[0].status
+        } else if (d.quotations && d.quotations.length > 0) {
+          const sortedQuotations = [...d.quotations].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          status = sortedQuotations[0].status
+        }
+        return { ...d, status }
+      })
     },
     enabled: !!vendorProfile?.company_id
   })
 }
 
 export function useDrawingById(id) {
+  const { vendorProfile } = useVendor()
   return useQuery({
     queryKey: ['drawing', id],
     queryFn: async () => {
       const { data, error } = await getDrawingById(id)
       if (error) throw error
+      if (data && vendorProfile?.company_id) {
+        const { data: quotes } = await getQuotationsByCompany(vendorProfile.company_id)
+        const myQuotes = quotes ? quotes.filter(q => q.drawing_request_id === data.id) : []
+        if (myQuotes.length > 0) {
+          const sortedQuotations = [...myQuotes].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          data.status = sortedQuotations[0].status
+        } else if (data.quotations && data.quotations.length > 0) {
+          const sortedQuotations = [...data.quotations].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          data.status = sortedQuotations[0].status
+        }
+      }
       return data
     },
-    enabled: !!id
+    enabled: !!id && !!vendorProfile?.company_id
   })
 }
 

@@ -4,6 +4,7 @@ export default function StatusBadge({ status }) {
   const map = {
     pending: { bg: 'bg-amber-100', text: 'text-amber-700' },
     quoted: { bg: 'bg-blue-100', text: 'text-blue-700' },
+    submitted: { bg: 'bg-blue-100', text: 'text-blue-700' },
     approved: { bg: 'bg-green-100', text: 'text-green-700' },
     accepted: { bg: 'bg-green-100', text: 'text-green-700' },
     rejected: { bg: 'bg-red-100', text: 'text-red-700' },

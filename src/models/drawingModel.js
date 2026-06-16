@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient'
 export async function getDrawingsByCompany(companyId) {
   return await supabase
     .from('drawing_requests')
-    .select(`*, companies (*), users (*)`)
+    .select(`*, companies (*), users (*), quotations(status, created_at)`)
     .eq('company_id', companyId)
     .order('created_at', { ascending: false })
 }
@@ -11,7 +11,7 @@ export async function getDrawingsByCompany(companyId) {
 export async function getDrawingById(id) {
   return await supabase
     .from('drawing_requests')
-    .select(`*, companies (*), users (*)`)
+    .select(`*, companies (*), users (*), quotations(status, created_at)`)
     .eq('id', id)
     .single()
 }

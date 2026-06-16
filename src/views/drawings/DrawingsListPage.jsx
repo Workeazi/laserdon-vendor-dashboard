@@ -24,44 +24,37 @@ export default function DrawingsListPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-[1500px] mx-auto">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/50">
-        <div>
-          <h2 className="text-3xl font-display-metrics font-bold text-gray-900 tracking-tight">Drawing Requests</h2>
-          <p className="text-gray-500 mt-2 text-body-lg">Manage incoming requests and prepare your quotations.</p>
+      {/* Action Bar */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 w-full">
+        {/* Filters */}
+        <div className="flex bg-white p-1 rounded-lg border border-gray-200 overflow-x-auto hide-scrollbar gap-1 max-w-full shadow-sm w-full md:w-auto">
+          {['all', 'pending', 'submitted', 'approved', 'rejected'].map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-4 py-1.5 rounded-md text-sm font-semibold capitalize transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
+                filter === f 
+                  ? 'bg-primary text-white shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              {f === 'submitted' ? 'Quoted' : f}
+            </button>
+          ))}
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-          {/* Filters */}
-          <div className="flex bg-gray-50/80 p-1.5 rounded-xl border border-gray-100">
-            {['all', 'pending', 'quoted'].map(f => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-5 py-2 rounded-lg text-sm font-semibold capitalize transition-all duration-300 ${
-                  filter === f 
-                    ? 'bg-white text-primary shadow-sm ring-1 ring-black/5' 
-                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100/50'
-                }`}
-              >
-                {f}
-              </button>
-            ))}
+        {/* Search Bar */}
+        <div className="relative group w-full md:w-80 flex-shrink-0">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary transition-colors">
+            <Search className="w-4 h-4" />
           </div>
-          
-          {/* Search Bar */}
-          <div className="relative group w-full sm:w-72">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary transition-colors">
-              <Search className="w-5 h-5" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search files or customers..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-gray-50/80 border border-gray-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all duration-300 text-sm font-medium text-gray-900 placeholder-gray-400"
-            />
-          </div>
+          <input
+            type="text"
+            placeholder="Search files or customers..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 text-sm font-medium text-gray-900 placeholder-gray-400 shadow-sm"
+          />
         </div>
       </div>
 

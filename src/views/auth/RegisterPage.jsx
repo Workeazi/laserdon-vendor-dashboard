@@ -59,7 +59,7 @@ export default function RegisterPage() {
   const navigate = useNavigate()
   const { session } = useSession()
 
-  if (session) {
+  if (session && !loading) {
     return <Navigate to="/dashboard" replace />
   }
 
@@ -207,6 +207,9 @@ export default function RegisterPage() {
         ])
 
       if (dbError) throw dbError
+
+      // Log out immediately so they can't access the dashboard until approved
+      await supabase.auth.signOut()
 
       // Redirect to login page with success message
       navigate('/login', { 

@@ -65,13 +65,22 @@ export default function DashboardPage() {
           const totalRevenue = revenueRes.data || 0;
 
           const total = data.length;
-          const pending = data.filter(req => req.status === 'pending').length;
           
-          // Calculate quotation-based metrics
-          const approved = quotesData.filter(q => q.status === 'approved').length;
-          const rejected = quotesData.filter(q => q.status === 'rejected').length;
-          // Quotations that are just submitted (quoted from vendor's perspective)
-          const quoted = quotesData.filter(q => q.status === 'submitted' || q.status === 'pending').length;
+          // Compute dynamic status for each request, just like useDrawings does
+          const requestsWithStatus = data.map(req => {
+            let status = req.status;
+            const myQuotes = quotesData.filter(q => q.drawing_request_id === req.id);
+            if (myQuotes.length > 0) {
+              const sorted = [...myQuotes].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+              status = sorted[0].status;
+            }
+            return { ...req, computedStatus: status };
+          });
+
+          const pending = requestsWithStatus.filter(req => req.computedStatus === 'pending').length;
+          const approved = requestsWithStatus.filter(req => req.computedStatus === 'approved').length;
+          const rejected = requestsWithStatus.filter(req => req.computedStatus === 'rejected').length;
+          const quoted = requestsWithStatus.filter(req => req.computedStatus === 'submitted').length;
 
           setMetrics({
             totalRequests: total,
@@ -153,16 +162,7 @@ export default function DashboardPage() {
                     <h3 className="font-headline-lg text-display-metrics text-on-surface tracking-tight">System Overview</h3>
                     <p className="text-body-lg text-on-surface-variant mt-1 max-w-xl">Monitor your laser cutting requests, quotations, and revenue growth in real-time.</p>
                 </div>
-                <div className="flex gap-3 w-full sm:w-auto">
-                    <button className="flex-1 sm:flex-none px-5 py-2.5 rounded-lg border border-outline-variant bg-white text-on-surface hover:bg-surface-container-low transition-colors font-medium text-body-md flex items-center justify-center gap-2">
-                        <span className="material-symbols-outlined">file_download</span>
-                        Export Data
-                    </button>
-                    <button className="flex-1 sm:flex-none px-5 py-2.5 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors shadow-sm font-medium text-body-md flex items-center justify-center gap-2">
-                        <span className="material-symbols-outlined">add</span>
-                        New Quotation
-                    </button>
-                </div>
+
             </div>
 
             {/* Metric Cards Bento Grid */}

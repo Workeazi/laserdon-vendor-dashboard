@@ -12,6 +12,7 @@ export default function Sidebar({ isOpen, onClose }) {
     { to: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { to: '/drawings', label: 'Requests', icon: 'pending_actions', badge: unreadCount },
     { to: '/quotations', label: 'Quotations', icon: 'request_quote' },
+    { to: '/chat', label: 'Messages', icon: 'chat' },
     { to: '/customers', label: 'Customers', icon: 'group' },
     { to: '/payments', label: 'Payments', icon: 'account_balance_wallet' },
     { to: '/reports', label: 'Reports', icon: 'analytics' },

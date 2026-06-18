@@ -12,6 +12,7 @@ const DrawingDetailPage = lazy(() => import('../views/drawings/DrawingDetailPage
 const QuotationsPage = lazy(() => import('../views/quotations/QuotationsPage'))
 const CustomersPage = lazy(() => import('../views/customers/CustomersPage'))
 const ReportsPage = lazy(() => import('../views/reports/ReportsPage'))
+const ChatPage = lazy(() => import('../views/chat/ChatPage'))
 const ProfilePage = lazy(() => import('../views/profile/ProfilePage'))
 const DashboardPage = lazy(() => import('../views/dashboard/DashboardPage'))
 const NotificationsPage = lazy(() => import('../views/notifications/NotificationsPage'))
@@ -35,6 +36,7 @@ export default function AppRoutes() {
             <Route path="drawings" element={<DrawingsListPage />} />
             <Route path="drawings/:id" element={<DrawingDetailPage />} />
             <Route path="quotations" element={<QuotationsPage />} />
+            <Route path="chat" element={<ChatPage />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="profile" element={<ProfilePage />} />

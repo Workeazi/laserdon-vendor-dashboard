@@ -15,6 +15,7 @@ export default function DrawingsListPage() {
   const [selectedDrawingId, setSelectedDrawingId] = useState(null)
 
   const filteredDrawings = drawings?.filter(d => {
+    if (d.status === 'approved' || d.status === 'rejected') return false;
     const statusMatch = filter === 'all' || d.status === filter
     const searchMatch = !search || 
       d.file_name?.toLowerCase().includes(search.toLowerCase()) || 
@@ -28,7 +29,7 @@ export default function DrawingsListPage() {
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 w-full">
         {/* Filters */}
         <div className="flex bg-white p-1 rounded-lg border border-gray-200 overflow-x-auto hide-scrollbar gap-1 max-w-full shadow-sm w-full md:w-auto">
-          {['all', 'pending', 'submitted', 'approved', 'rejected'].map(f => (
+          {['all', 'pending', 'submitted'].map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}

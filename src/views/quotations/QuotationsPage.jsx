@@ -64,6 +64,11 @@ export default function QuotationsPage() {
       ) 
     },
     { key: 'notes', label: 'Notes', render: (row) => <span className="truncate max-w-[200px] block" title={row.notes}>{row.notes || '-'}</span> },
+    { 
+      key: 'price', 
+      label: 'Price', 
+      render: (row) => <span className="font-semibold text-gray-900">{row.price ? `₹${parseFloat(row.price).toFixed(2)}` : '-'}</span> 
+    },
     { key: 'date', label: 'Sent Date', render: (row) => formatDate(row.created_at) },
     { key: 'status', label: 'Status', render: (row) => <StatusBadge status={row.status} /> },
     { 

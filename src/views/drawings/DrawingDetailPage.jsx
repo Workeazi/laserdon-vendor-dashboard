@@ -22,6 +22,7 @@ export default function DrawingDetailModal({ drawingId: propDrawingId, onClose }
 
   const [pdfFile, setPdfFile] = useState(null)
   const [notes, setNotes] = useState('')
+  const [price, setPrice] = useState('')
   const [isUploading, setIsUploading] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -78,7 +79,7 @@ export default function DrawingDetailModal({ drawingId: propDrawingId, onClose }
 
       if (isEditing && existingQuotation) {
         updateQuotation(
-          { id: existingQuotation.id, data: { pdf_url: pdfUrl, notes } },
+          { id: existingQuotation.id, data: { pdf_url: pdfUrl, notes, price } },
           {
             onSuccess: () => {
               toast.success('Quotation updated successfully!');
@@ -91,7 +92,7 @@ export default function DrawingDetailModal({ drawingId: propDrawingId, onClose }
         )
       } else {
         createQuotation(
-          { drawingRequestId: drawing.id, pdfUrl, notes },
+          { drawingRequestId: drawing.id, pdfUrl, notes, price },
           {
             onSuccess: () => {
               toast.success('Quotation submitted successfully!');
@@ -250,6 +251,20 @@ export default function DrawingDetailModal({ drawingId: propDrawingId, onClose }
                 </div>
 
                 <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-gray-600">Price (INR)</label>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    min="0"
+                    required
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" 
+                    placeholder="Enter total price..." 
+                  />
+                </div>
+
+                <div className="space-y-1.5">
                   <label className="text-[11px] font-semibold text-gray-600">Terms & Notes (Optional)</label>
                   <textarea 
                     value={notes}
@@ -303,6 +318,12 @@ export default function DrawingDetailModal({ drawingId: propDrawingId, onClose }
                     <Download className="w-3 h-3" /> View PDF
                   </a>
                 </div>
+                {existingQuotation.price && (
+                  <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase">Quoted Price</span>
+                    <span className="text-xs font-bold text-gray-900">₹{parseFloat(existingQuotation.price).toFixed(2)}</span>
+                  </div>
+                )}
                 {existingQuotation.notes && (
                   <div className="mt-2 pt-2 border-t border-gray-100">
                     <span className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Notes</span>
@@ -316,6 +337,7 @@ export default function DrawingDetailModal({ drawingId: propDrawingId, onClose }
                   onClick={() => {
                     setIsEditing(true);
                     setNotes(existingQuotation.notes || '');
+                    setPrice(existingQuotation.price ? existingQuotation.price.toString() : '');
                   }}
                   className="mx-auto bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 py-1.5 px-4 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all"
                 >

@@ -6,7 +6,7 @@ export async function getQuotationsByVendor(vendorId) {
   return await supabase
     .from('quotations')
     .select(`
-      id, drawing_request_id, pdf_url, notes, status, created_at, responded_at,
+      id, drawing_request_id, pdf_url, notes, status, created_at, responded_at, price,
       drawing_requests ( id, file_url, notes, users (full_name) )
     `)
     .eq('vendor_id', vendorId)
@@ -17,14 +17,14 @@ export async function getQuotationsByCompany(companyId) {
   return await supabase
     .from('quotations')
     .select(`
-      id, drawing_request_id, pdf_url, notes, status, created_at, responded_at,
+      id, drawing_request_id, pdf_url, notes, status, created_at, responded_at, price,
       drawing_requests ( id, file_url, notes, users (full_name) )
     `)
     .eq('company_id', companyId)
     .order('created_at', { ascending: false })
 }
 
-export async function createQuotation({ drawingRequestId, vendorId, companyId, pdfUrl, notes }) {
+export async function createQuotation({ drawingRequestId, vendorId, companyId, pdfUrl, notes, price }) {
   return await supabase
     .from('quotations')
     .insert([{
@@ -33,16 +33,18 @@ export async function createQuotation({ drawingRequestId, vendorId, companyId, p
       company_id: companyId,
       pdf_url: pdfUrl,
       notes,
-      status: 'submitted'
+      status: 'submitted',
+      price: price ? parseFloat(price) : null
     }])
     .select()
 }
 
-export async function updateQuotation(id, { pdfUrl, notes, status }) {
+export async function updateQuotation(id, { pdfUrl, notes, status, price }) {
   const updates = {};
   if (pdfUrl !== undefined) updates.pdf_url = pdfUrl;
   if (notes !== undefined) updates.notes = notes;
   if (status !== undefined) updates.status = status;
+  if (price !== undefined) updates.price = price ? parseFloat(price) : null;
 
   return await supabase
     .from('quotations')

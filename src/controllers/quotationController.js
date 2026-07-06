@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useVendor } from '../context/VendorContext'
 import { getQuotationsByVendor, getQuotationsByCompany, createQuotation, updateQuotation } from '../models/quotationModel'
+import { updateDrawingStatus } from '../models/drawingModel'
 
 export function useQuotations() {
   const { vendorProfile } = useVendor()
@@ -25,7 +26,7 @@ export function useCreateQuotation() {
   const companyId = vendorProfile?.company_id
 
   return useMutation({
-    mutationFn: async ({ drawingRequestId, pdfUrl, notes }) => {
+    mutationFn: async ({ drawingRequestId, pdfUrl, notes, price }) => {
       if (!pdfUrl) throw new Error('Quotation PDF is required')
       
       const { data, error } = await createQuotation({ 
@@ -33,9 +34,17 @@ export function useCreateQuotation() {
         vendorId, 
         companyId, 
         pdfUrl, 
-        notes 
+        notes,
+        price
       })
       if (error) throw error
+
+      // Update the drawing request status in the database to 'approved'
+      const { error: statusError } = await updateDrawingStatus(drawingRequestId, 'approved')
+      if (statusError) {
+        console.error('Failed to update drawing request status:', statusError)
+      }
+
       return data
     },
     onSuccess: (_, variables) => {

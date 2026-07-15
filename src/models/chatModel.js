@@ -66,7 +66,6 @@ export async function sendVendorMessage(chatId, companyId, text) {
       .from('messages')
       .insert([{
         chat_id: chatId,
-        is_read_vendor: true, // Vendor just sent it, so vendor has read the chat
         vendor_unread_message_count: 0,
         is_read_user: false,
         user_unread_message_count: 1,
@@ -100,11 +99,9 @@ export async function markMessagesAsReadForVendor(chatId) {
   return await supabase
     .from('messages')
     .update({ 
-      is_read_vendor: true,
       vendor_unread_message_count: 0
     })
     .eq('chat_id', chatId)
-    .eq('is_read_vendor', false)
 }
 
 // Get existing chat or create a new one between company and user

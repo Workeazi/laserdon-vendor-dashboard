@@ -75,13 +75,14 @@ export function useChatMessages(chatId, onMarkAsRead) {
       
       let fetchedMessages = []
       if (data && data.length > 0) {
-        data.forEach(row => {
+        data.forEach((row, rowIdx) => {
           if (row.real_messages && row.real_messages.length > 0) {
             const msgs = row.real_messages.map((m, idx) => ({
               id: `real_msg_${row.id}_${idx}`,
               text: m.message,
               is_vendor: m.who === vendorProfile?.company_id,
-              created_at: m.timestamp || row.created_at 
+              created_at: m.timestamp || row.created_at,
+              sequence: rowIdx * 1000000 + idx
             }))
             fetchedMessages.push(...msgs)
           } else if (row.text) {
@@ -89,14 +90,15 @@ export function useChatMessages(chatId, onMarkAsRead) {
               id: row.id,
               text: row.text,
               is_vendor: row.is_vendor,
-              created_at: row.created_at
+              created_at: row.created_at,
+              sequence: rowIdx * 1000000
             })
           }
         })
       }
       
-      // Sort messages by created_at ascending so newest are at the bottom
-      fetchedMessages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      // Sort messages by sequence ascending to preserve original array order
+      fetchedMessages.sort((a, b) => a.sequence - b.sequence);
       
       setMessages(fetchedMessages)
 

@@ -11,18 +11,26 @@ export default function ProtectedRoute({ children }) {
 
   const isLoading = sessionLoading || profileLoading
 
+  console.log('[ProtectedRoute] state:', { sessionLoading, profileLoading, isLoading, vendorProfile })
+
   useEffect(() => {
     // If we have a profile but they are not approved, force sign out and redirect
     if (vendorProfile && vendorProfile.status !== 'approved') {
       const forceLogout = async () => {
-        await supabase.auth.signOut()
-        navigate('/login', { 
-          state: { 
-            message: vendorProfile.status === 'pending' 
-              ? 'Your account is pending admin approval.' 
-              : 'Your account is not active.' 
-          } 
-        })
+        console.log('[ProtectedRoute] Forcing logout for user, status:', vendorProfile.status)
+        try {
+          await supabase.auth.signOut()
+        } catch (e) {
+          console.error('[ProtectedRoute] Error during signOut:', e)
+        } finally {
+          navigate('/login', { 
+            state: { 
+              message: vendorProfile.status === 'pending' 
+                ? 'Your account is pending admin approval.' 
+                : 'Your account is not active.' 
+            } 
+          })
+        }
       }
       forceLogout()
     }

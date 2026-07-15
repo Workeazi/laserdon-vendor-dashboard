@@ -1,7 +1,7 @@
 import { supabase } from './supabaseClient'
 
 export async function getCustomersByVendor(vendorId) {
-  const { data: quotations, error } = await supabase
+  const { data: quotations, error: quotationsError } = await supabase
     .from('quotations')
     .select(`
       drawing_requests (
@@ -12,7 +12,7 @@ export async function getCustomersByVendor(vendorId) {
     `)
     .eq('vendor_id', vendorId)
 
-  if (error) return { error }
+  if (quotationsError) return { error: quotationsError }
 
   // extract unique users
   const userMap = new Map();
@@ -28,6 +28,31 @@ export async function getCustomersByVendor(vendorId) {
       }
     }
   });
+
+  // Fetch paid payments for this vendor to calculate spent per user
+  const { data: payments, error: paymentsError } = await supabase
+    .from('payments')
+    .select(`
+      amount,
+      drawing_request_id,
+      drawing_requests (
+        user_id
+      )
+    `)
+    .eq('vendor_id', vendorId)
+    .eq('payment_status', 'paid')
+
+  if (!paymentsError && payments) {
+    payments.forEach(p => {
+      if (p.drawing_requests && p.drawing_requests.user_id) {
+        const userId = p.drawing_requests.user_id;
+        if (userMap.has(userId)) {
+          const user = userMap.get(userId);
+          user.total_spent += Number(p.amount);
+        }
+      }
+    });
+  }
 
   return { data: Array.from(userMap.values()) }
 }

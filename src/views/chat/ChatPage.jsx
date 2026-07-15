@@ -131,17 +131,17 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead }) {
   const initial = customerName.charAt(0).toUpperCase()
 
   return (
-    <div className="flex-1 flex flex-col bg-[#efeae2] h-full min-w-0 min-h-0 relative border-l border-outline-variant/30" style={{backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', backgroundRepeat: 'repeat', backgroundSize: '400px', backgroundBlendMode: 'overlay', backgroundColor: 'rgba(239,234,226,0.9)'}}>
+    <div className="flex-1 flex flex-col h-full min-w-0 min-h-0 relative border-l border-[#222e35]/30" style={{backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', backgroundRepeat: 'repeat', backgroundSize: '400px', backgroundBlendMode: 'overlay', backgroundColor: '#0b141a'}}>
       
       {/* Chat Header */}
-      <div className="h-16 px-4 bg-[#f0f2f5] border-b border-outline-variant/30 flex items-center gap-4 shrink-0 z-10 shadow-sm">
-        <div className="w-[40px] h-[40px] rounded-full bg-[#dfe5e7] flex items-center justify-center text-[#54656f] font-bold text-lg flex-shrink-0">
+      <div className="h-16 px-4 bg-[#111b21] border-b border-[#222e35] flex items-center gap-4 shrink-0 z-10 shadow-sm">
+        <div className="w-[40px] h-[40px] rounded-full bg-[#202c33] flex items-center justify-center text-[#e9edef] font-bold text-lg flex-shrink-0">
           {initial}
         </div>
         <div className="flex-1">
-          <h2 className="text-[16px] font-medium text-[#111b21]">{customerName}</h2>
+          <h2 className="text-[16px] font-medium text-[#e9edef]">{customerName}</h2>
         </div>
-        <div className="flex gap-4 text-[#54656f]">
+        <div className="flex gap-4 text-[#aebac1]">
           <span className="material-symbols-outlined cursor-pointer">search</span>
           <span className="material-symbols-outlined cursor-pointer">more_vert</span>
         </div>
@@ -149,12 +149,12 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead }) {
 
       {isLoading && messages.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#00a884] border-t-transparent"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#0084ff] border-t-transparent"></div>
         </div>
       ) : (
         <>
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-[5%] flex flex-col gap-[2px]">
+          <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-0">
             {messages.map((msg, index) => {
               const isVendor = msg.is_vendor;
               // Check if previous message is from same sender to handle tails
@@ -162,31 +162,37 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead }) {
               const isFirstInGroup = !prevMsg || prevMsg.is_vendor !== isVendor;
 
               return (
-                <div key={msg.id} className={`flex ${isVendor ? 'justify-end' : 'justify-start'} ${isFirstInGroup ? 'mt-2' : ''}`}>
+                <div key={msg.id} className={`flex ${isVendor ? 'justify-end' : 'justify-start'} ${isFirstInGroup ? 'mt-3' : 'mt-[2px]'}`}>
                   <div 
-                    className={`relative max-w-[65%] px-2.5 py-1.5 shadow-[0_1px_0.5px_rgba(11,20,26,.13)] ${
+                    className={`relative max-w-[65%] px-3 py-1.5 shadow-[0_1px_0.5px_rgba(11,20,26,.13)] ${
                       isVendor 
-                        ? 'bg-[#dcf8c6] rounded-lg' 
-                        : 'bg-white rounded-lg'
-                    } ${isFirstInGroup && isVendor ? 'rounded-tr-none' : ''} ${isFirstInGroup && !isVendor ? 'rounded-tl-none' : ''}`}
+                        ? `bg-[#0084ff] text-white ${isFirstInGroup ? 'rounded-tl-[8px] rounded-bl-[8px] rounded-br-[8px] rounded-tr-none' : 'rounded-[8px]'}` 
+                        : `bg-[#202c33] text-[#e9edef] ${isFirstInGroup ? 'rounded-tr-[8px] rounded-br-[8px] rounded-bl-[8px] rounded-tl-none' : 'rounded-[8px]'}`
+                    }`}
                   >
                     {/* Tail SVG for first message in group */}
                     {isFirstInGroup && isVendor && (
-                      <span className="absolute top-0 -right-2 text-[#dcf8c6]">
-                        <svg viewBox="0 0 8 13" width="8" height="13" className=""><path opacity=".13" d="M5.188 1H0v11.193l6.467-8.625C7.526 2.156 6.958 1 5.188 1z"></path><path fill="currentColor" d="M5.188 0H0v11.193l6.467-8.625C7.526 1.156 6.958 0 5.188 0z"></path></svg>
-                      </span>
+                      <div className="absolute top-0 right-[-8px] text-[#0084ff] w-[8px] h-[13px] z-10 pointer-events-none">
+                        <svg viewBox="0 0 8 13" width="8" height="13" className="w-full h-full">
+                          <path fill="currentColor" d="M5.188 0H0v11.193l6.467-8.625C7.526 1.156 6.958 0 5.188 0z"></path>
+                        </svg>
+                      </div>
                     )}
                     {isFirstInGroup && !isVendor && (
-                      <span className="absolute top-0 -left-2 text-white">
-                        <svg viewBox="0 0 8 13" width="8" height="13" className=""><path opacity=".13" fill="#0000000" d="M1.533 3.568 8 12.193V1H2.812C1.042 1 .474 2.156 1.533 3.568z"></path><path fill="currentColor" d="M1.533 2.568 8 11.193V0H2.812C1.042 0 .474 1.156 1.533 2.568z"></path></svg>
-                      </span>
+                      <div className="absolute top-0 left-[-8px] text-[#202c33] w-[8px] h-[13px] z-10 pointer-events-none">
+                        <svg viewBox="0 0 8 13" width="8" height="13" className="w-full h-full">
+                          <path fill="currentColor" d="M2.812 0H8v11.193L1.533 2.568C.474 1.156 1.042 0 2.812 0z"></path>
+                        </svg>
+                      </div>
                     )}
                     
                     <div className="flex flex-wrap items-end gap-2">
-                      <p className="text-[14.2px] text-[#111b21] leading-[19px] break-words pt-0.5 pb-1">{msg.text}</p>
-                      <span className="text-[11px] text-[#667781] leading-[15px] ml-auto pb-0.5 mt-1 float-right whitespace-nowrap">
+                      <p className="text-[14.2px] leading-[19px] break-words pt-0.5 pb-1">{msg.text}</p>
+                      <span className={`text-[11px] leading-[15px] ml-auto pb-0.5 mt-1 float-right whitespace-nowrap flex items-center gap-0.5 ${
+                        isVendor ? 'text-[#d1ebff]' : 'text-[#8696a0]'
+                      }`}>
                         {msg.created_at ? formatTime(msg.created_at) : ''}
-                        {isVendor && <span className="material-symbols-outlined text-[14px] ml-1 text-[#53bdeb] align-bottom">done_all</span>}
+                        {isVendor && <span className="material-symbols-outlined text-[14px] text-white font-semibold">done_all</span>}
                       </span>
                     </div>
                   </div>
@@ -197,27 +203,27 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead }) {
           </div>
 
           {/* Input Area */}
-          <div className="px-4 py-3 bg-[#f0f2f5] flex items-center gap-4 shrink-0">
-            <span className="material-symbols-outlined text-[26px] text-[#54656f] cursor-pointer">mood</span>
-            <span className="material-symbols-outlined text-[26px] text-[#54656f] cursor-pointer rotate-45 transform">attach_file</span>
+          <div className="px-4 py-3 bg-[#111b21] flex items-center gap-4 shrink-0">
+            <span className="material-symbols-outlined text-[26px] text-[#8696a0] cursor-pointer">mood</span>
+            <span className="material-symbols-outlined text-[26px] text-[#8696a0] cursor-pointer rotate-45 transform">attach_file</span>
             <form onSubmit={handleSend} className="flex-1">
               <input
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder="Type a message"
-                className="w-full bg-white border-none rounded-lg px-4 py-2.5 focus:outline-none text-[15px] text-[#111b21] placeholder:text-[#54656f] shadow-sm"
+                className="w-full bg-[#2a3942] border-none rounded-lg px-4 py-2.5 focus:outline-none text-[15px] text-[#e9edef] placeholder:text-[#8696a0] shadow-sm"
               />
             </form>
             {inputText.trim() ? (
               <button
                 onClick={handleSend}
-                className="text-[#54656f] flex items-center justify-center hover:text-[#00a884] transition-colors"
+                className="text-[#8696a0] flex items-center justify-center hover:text-[#0084ff] transition-colors"
               >
                 <span className="material-symbols-outlined text-[26px]">send</span>
               </button>
             ) : (
-              <span className="material-symbols-outlined text-[26px] text-[#54656f] cursor-pointer">mic</span>
+              <span className="material-symbols-outlined text-[26px] text-[#8696a0] cursor-pointer">mic</span>
             )}
           </div>
         </>

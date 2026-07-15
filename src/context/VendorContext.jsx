@@ -12,9 +12,14 @@ export function VendorProvider({ children }) {
   const fetchProfile = async () => {
     if (session?.user) {
       setIsProfileLoading(true)
-      const { data } = await getVendorProfile(session.user.id)
-      setVendorProfile(data)
-      setIsProfileLoading(false)
+      try {
+        const { data } = await getVendorProfile(session.user.id)
+        setVendorProfile(data)
+      } catch (err) {
+        console.error('Error fetching vendor profile:', err)
+      } finally {
+        setIsProfileLoading(false)
+      }
     } else {
       setVendorProfile(null)
       setIsProfileLoading(false)

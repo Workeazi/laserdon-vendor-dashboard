@@ -18,7 +18,7 @@ app.get('/api/health', (req, res) => {
 
 // Handles any requests that don't match the ones above.
 // This is necessary for client-side routing (React Router) to work properly.
-app.get('*', (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 

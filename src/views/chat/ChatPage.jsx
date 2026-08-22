@@ -11,6 +11,13 @@ const formatTime = (isoString) => {
 }
 
 function ChatList({ chats, activeChatId, onSelectChat, onNewChat }) {
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const filteredChats = chats.filter(chat => {
+    const customerName = chat.users?.full_name || 'Unknown Customer';
+    return customerName.toLowerCase().includes(searchQuery.toLowerCase());
+  })
+
   return (
     <div className="w-1/3 border-r border-outline-variant/30 flex flex-col bg-white relative min-h-0">
       {/* Header */}
@@ -25,27 +32,42 @@ function ChatList({ chats, activeChatId, onSelectChat, onNewChat }) {
         </button>
       </div>
       
-      {/* Search Bar Area (Placeholder) */}
+      {/* Search Bar Area */}
       <div className="px-3 py-2 bg-white border-b border-outline-variant/30">
         <div className="bg-[#f0f2f5] rounded-lg px-4 py-1.5 flex items-center gap-4">
           <span className="material-symbols-outlined text-[18px] text-[#54656f]">search</span>
-          <input type="text" placeholder="Search or start new chat" className="bg-transparent border-none outline-none text-sm w-full text-[#111b21] placeholder:text-[#54656f]" />
+          <input 
+            type="text" 
+            placeholder="Search or start new chat" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="bg-transparent border-none outline-none text-sm w-full text-[#111b21] placeholder:text-[#54656f]" 
+          />
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {chats.length === 0 ? (
+        {filteredChats.length === 0 ? (
           <div className="p-8 text-center text-[#54656f] text-sm">
-            No conversations yet
+            {searchQuery ? 'No chats found' : 'No conversations yet'}
           </div>
         ) : (
-          chats.map(chat => {
+          filteredChats.map(chat => {
             const isActive = chat.id === activeChatId;
             const customerName = chat.users?.full_name || 'Unknown Customer';
             const initial = customerName.charAt(0).toUpperCase();
             
-            const msgRow = chat.messages && chat.messages.length > 0 ? chat.messages[0] : null;
-            const unreadCount = msgRow?.vendor_unread_message_count || 0;
+            let msgRow = null;
+            let unreadCount = 0;
+            if (chat.messages && chat.messages.length > 0) {
+              const sortedMsgs = [...chat.messages].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+              msgRow = sortedMsgs[0];
+              chat.messages.forEach(r => {
+                 if (r.vendor_unread_message_count === null || r.vendor_unread_message_count > 0) {
+                   unreadCount += (r.vendor_unread_message_count || 1);
+                 }
+              });
+            }
             let realMessages = msgRow?.real_messages || [];
             if (typeof realMessages === 'string') {
               try {
@@ -55,8 +77,25 @@ function ChatList({ chats, activeChatId, onSelectChat, onNewChat }) {
               }
             }
             if (Array.isArray(realMessages)) {
-              // Convert any string items to objects to prevent losing them
-              realMessages = realMessages.map(m => typeof m === 'string' ? { message: m } : m).filter(m => m !== null);
+              let chars = [];
+              let other = [];
+              realMessages.forEach(m => {
+                if (typeof m === 'string' && m.length === 1) chars.push(m);
+                else if (typeof m === 'string') other.push({ message: m });
+                else if (m !== null) other.push(m);
+              });
+              
+              if (chars.length > 0) {
+                const joined = chars.join('');
+                try {
+                   const parsed = JSON.parse(joined);
+                   if (Array.isArray(parsed)) other.unshift(...parsed);
+                   else other.unshift(parsed);
+                } catch(e) {
+                   other.unshift({ message: joined });
+                }
+              }
+              realMessages = other;
             }
             const lastMessage = realMessages.length > 0 ? realMessages[realMessages.length - 1].message : 'Started a conversation';
 
@@ -100,10 +139,14 @@ function ChatList({ chats, activeChatId, onSelectChat, onNewChat }) {
   )
 }
 
-function ChatWindow({ chatId, activeChat, onMarkAsRead }) {
-  const { messages, isLoading, sendMessage } = useChatMessages(chatId, onMarkAsRead)
+function ChatWindow({ chatId, activeChat, onMarkAsRead, onDeleteChat }) {
+  const { messages, isLoading, sendMessage, deleteMsg } = useChatMessages(chatId, onMarkAsRead)
   const [inputText, setInputText] = useState('')
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [activeMessageMenu, setActiveMessageMenu] = useState(null)
+  const [replyingTo, setReplyingTo] = useState(null)
   const messagesEndRef = useRef(null)
+  const menuRef = useRef(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -113,16 +156,53 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead }) {
     scrollToBottom()
   }, [messages])
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   const handleSend = async (e) => {
     e.preventDefault()
     if (!inputText.trim()) return
     const text = inputText.trim()
     setInputText('')
     try {
-      await sendMessage(text)
+      await sendMessage(text, replyingTo ? { id: replyingTo.id, text: replyingTo.text, is_vendor: replyingTo.is_vendor } : null)
+      setReplyingTo(null)
     } catch (err) {
       console.error(err)
       setInputText(text) // Restore on failure
+    }
+  }
+
+  const handleDownload = async (url, filename) => {
+    if (!url) return;
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename || 'attachment';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error('Download failed, falling back to new tab', err);
+      window.open(url, '_blank');
+    }
+  }
+
+  const handleDeleteClick = () => {
+    setIsMenuOpen(false)
+    if (window.confirm('Are you sure you want to delete this chat and all its messages? This cannot be undone.')) {
+      onDeleteChat(chatId)
     }
   }
 
@@ -154,7 +234,24 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead }) {
         </div>
         <div className="flex gap-4 text-[#aebac1]">
           <span className="material-symbols-outlined cursor-pointer">search</span>
-          <span className="material-symbols-outlined cursor-pointer">more_vert</span>
+          <div className="relative" ref={menuRef}>
+            <span 
+              className="material-symbols-outlined cursor-pointer" 
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+            >
+              more_vert
+            </span>
+            {isMenuOpen && (
+              <div className="absolute right-0 top-8 w-40 bg-[#202c33] border border-[#2a3942] rounded-md shadow-lg z-50 overflow-hidden">
+                <button 
+                  onClick={handleDeleteClick}
+                  className="w-full text-left px-4 py-3 text-sm text-[#e9edef] hover:bg-[#111b21] transition-colors"
+                >
+                  Delete chat
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -175,12 +272,31 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead }) {
               return (
                 <div key={msg.id} className={`flex ${isVendor ? 'justify-end' : 'justify-start'} ${isFirstInGroup ? 'mt-3' : 'mt-[2px]'}`}>
                   <div 
-                    className={`relative max-w-[65%] px-3 py-1.5 shadow-[0_1px_0.5px_rgba(11,20,26,.13)] ${
+                    className={`relative max-w-[65%] px-3 py-1.5 shadow-[0_1px_0.5px_rgba(11,20,26,.13)] group ${
                       isVendor 
                         ? `bg-[#0084ff] text-white ${isFirstInGroup ? 'rounded-tl-[8px] rounded-bl-[8px] rounded-br-[8px] rounded-tr-none' : 'rounded-[8px]'}` 
                         : `bg-[#202c33] text-[#e9edef] ${isFirstInGroup ? 'rounded-tr-[8px] rounded-br-[8px] rounded-bl-[8px] rounded-tl-none' : 'rounded-[8px]'}`
                     }`}
                   >
+                    {/* Message Action Menu */}
+                    {!msg.isDeleted && (
+                      <div className="absolute right-1 top-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                         <button 
+                           onClick={() => setActiveMessageMenu(activeMessageMenu === msg.id ? null : msg.id)} 
+                           className="bg-transparent text-current opacity-70 hover:opacity-100 rounded-full p-0.5 outline-none"
+                         >
+                           <span className="material-symbols-outlined text-[20px]">expand_more</span>
+                         </button>
+                         {activeMessageMenu === msg.id && (
+                           <div className="absolute right-0 top-6 w-44 bg-[#202c33] border border-[#2a3942] rounded-md shadow-lg z-50 overflow-hidden text-[#e9edef] text-sm">
+                             <button onClick={() => { setReplyingTo(msg); setActiveMessageMenu(null); }} className="w-full text-left px-4 py-2 hover:bg-[#111b21] transition-colors">Reply</button>
+                             <button onClick={() => { deleteMsg(msg.id, 'me'); setActiveMessageMenu(null); }} className="w-full text-left px-4 py-2 hover:bg-[#111b21] transition-colors">Delete for me</button>
+                             {isVendor && <button onClick={() => { deleteMsg(msg.id, 'everyone'); setActiveMessageMenu(null); }} className="w-full text-left px-4 py-2 hover:bg-[#111b21] text-[#ef4444] transition-colors">Delete for everyone</button>}
+                           </div>
+                         )}
+                      </div>
+                    )}
+
                     {/* Tail SVG for first message in group */}
                     {isFirstInGroup && isVendor && (
                       <div className="absolute top-0 right-[-8px] text-[#0084ff] w-[8px] h-[13px] z-10 pointer-events-none">
@@ -197,9 +313,34 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead }) {
                       </div>
                     )}
                     
-                    <div className="flex flex-wrap items-end gap-2">
-                      <p className="text-[14.2px] leading-[19px] break-words pt-0.5 pb-1">{msg.text}</p>
-                      <span className={`text-[11px] leading-[15px] ml-auto pb-0.5 mt-1 float-right whitespace-nowrap flex items-center gap-0.5 ${
+                    <div className="flex flex-wrap items-end gap-2 mt-1">
+                      <div className="flex flex-col gap-1 w-full max-w-full">
+                        {msg.replyTo && !msg.isDeleted && (
+                          <div className={`rounded p-2 text-[13px] border-l-4 opacity-80 ${isVendor ? 'bg-black/10 border-white' : 'bg-[#111b21] border-[#00a884]'}`}>
+                            <div className="font-semibold mb-0.5">{msg.replyTo.is_vendor ? 'You' : customerName}</div>
+                            <div className="truncate">{msg.replyTo.text}</div>
+                          </div>
+                        )}
+                        {msg.has_attachment && !msg.isDeleted && (
+                          <div 
+                            className="flex items-center gap-2 bg-black/10 rounded p-2 mb-1 cursor-pointer hover:bg-black/20 transition-colors mt-1" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownload(msg.attachment_ref_id, msg.attachment_name);
+                            }}
+                            title="Download Attachment"
+                          >
+                            <span className="material-symbols-outlined text-[20px]">description</span>
+                            <span className="text-[13px] truncate font-medium underline flex-1">{msg.attachment_name || 'Attachment'}</span>
+                          </div>
+                        )}
+                        {msg.text && (
+                          <p className={`text-[14.2px] leading-[19px] break-words pt-0.5 pb-1 pr-6 ${msg.isDeleted ? 'italic text-current/70' : ''}`}>
+                            {msg.text}
+                          </p>
+                        )}
+                      </div>
+                      <span className={`text-[11px] leading-[15px] ml-auto pb-0.5 float-right whitespace-nowrap flex items-center gap-0.5 ${
                         isVendor ? 'text-[#d1ebff]' : 'text-[#8696a0]'
                       }`}>
                         {msg.created_at ? formatTime(msg.created_at) : ''}
@@ -214,8 +355,19 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead }) {
           </div>
 
           {/* Input Area */}
-          <div className="px-4 py-3 bg-[#111b21] flex items-center gap-4 shrink-0">
-            <span className="material-symbols-outlined text-[26px] text-[#8696a0] cursor-pointer">mood</span>
+          <div className="flex flex-col w-full relative z-30">
+            {replyingTo && (
+              <div className="bg-[#202c33] px-4 py-2 border-l-4 border-[#00a884] flex justify-between items-center text-[#e9edef] border-t border-[#2a3942]">
+                <div className="flex flex-col text-sm truncate pr-4">
+                  <span className="font-semibold text-[#00a884]">{replyingTo.is_vendor ? 'You' : customerName}</span>
+                  <span className="truncate opacity-80">{replyingTo.text}</span>
+                </div>
+                <button onClick={() => setReplyingTo(null)} className="text-[#8696a0] hover:text-[#e9edef]">
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+            )}
+            <div className="px-4 py-3 bg-[#111b21] flex items-center gap-4 shrink-0">
             <span className="material-symbols-outlined text-[26px] text-[#8696a0] cursor-pointer rotate-45 transform">attach_file</span>
             <form onSubmit={handleSend} className="flex-1">
               <input
@@ -226,16 +378,14 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead }) {
                 className="w-full bg-[#2a3942] border-none rounded-lg px-4 py-2.5 focus:outline-none text-[15px] text-[#e9edef] placeholder:text-[#8696a0] shadow-sm"
               />
             </form>
-            {inputText.trim() ? (
-              <button
-                onClick={handleSend}
-                className="text-[#8696a0] flex items-center justify-center hover:text-[#0084ff] transition-colors"
-              >
-                <span className="material-symbols-outlined text-[26px]">send</span>
-              </button>
-            ) : (
-              <span className="material-symbols-outlined text-[26px] text-[#8696a0] cursor-pointer">mic</span>
-            )}
+            <button
+              onClick={handleSend}
+              disabled={!inputText.trim()}
+              className={`flex items-center justify-center transition-colors ${inputText.trim() ? 'text-[#8696a0] hover:text-[#0084ff]' : 'text-[#8696a0] opacity-50 cursor-not-allowed'}`}
+            >
+              <span className="material-symbols-outlined text-[26px]">send</span>
+            </button>
+            </div>
           </div>
         </>
       )}
@@ -278,16 +428,15 @@ function NewChatModal({ isOpen, onClose, onSelectCustomer }) {
 }
 
 export default function ChatPage() {
-  const { chats, isLoading: chatsLoading, refetch: refetchChats, startNewChat } = useChats()
+  const { chats, isLoading: chatsLoading, refetch: refetchChats, startNewChat, removeChat } = useChats()
   const [activeChatId, setActiveChatId] = useState(null)
   const [isNewChatOpen, setIsNewChatOpen] = useState(false)
 
-  // Auto-select first unread chat, or first chat if none selected
   useEffect(() => {
     if (!activeChatId && chats.length > 0) {
       const firstUnread = chats.find(c => {
-        const msgRow = c.messages && c.messages.length > 0 ? c.messages[0] : null;
-        return (msgRow?.vendor_unread_message_count || 0) > 0;
+        if (!c.messages) return false;
+        return c.messages.some(msgRow => msgRow.vendor_unread_message_count === null || msgRow.vendor_unread_message_count > 0);
       });
       setActiveChatId(firstUnread ? firstUnread.id : chats[0].id)
     }
@@ -305,6 +454,18 @@ export default function ChatPage() {
     }
   }
 
+  const handleDeleteChat = async (chatId) => {
+    try {
+      await removeChat(chatId);
+      if (activeChatId === chatId) {
+        setActiveChatId(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete chat:', err);
+      alert('Failed to delete chat');
+    }
+  }
+
   return (
     <div className="fixed inset-0 lg:left-[260px] top-20 bg-white border-t border-outline-variant/60 flex overflow-hidden z-10">
       <ChatList 
@@ -317,6 +478,7 @@ export default function ChatPage() {
         chatId={activeChatId} 
         activeChat={chats.find(c => c.id === activeChatId)} 
         onMarkAsRead={refetchChats}
+        onDeleteChat={handleDeleteChat}
       />
       <NewChatModal 
         isOpen={isNewChatOpen} 

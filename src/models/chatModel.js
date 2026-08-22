@@ -7,7 +7,7 @@ export async function getChatsByCompany(companyId) {
     .select(`
       *,
       users(full_name, email),
-      messages(vendor_unread_message_count, real_messages)
+      messages(created_at, vendor_unread_message_count, real_messages)
     `)
     .eq('company_id', companyId)
     .order('updated_at', { ascending: false })
@@ -23,7 +23,7 @@ export async function getChatMessages(chatId) {
 }
 
 // Send a new message from the vendor
-export async function sendVendorMessage(chatId, companyId, text) {
+export async function sendVendorMessage(chatId, companyId, text, replyTo = null) {
   // 1. Fetch existing messages row
   const { data: existingRows, error: fetchError } = await supabase
     .from('messages')
@@ -38,6 +38,10 @@ export async function sendVendorMessage(chatId, companyId, text) {
     who: companyId,
     message: text,
     timestamp: new Date().toISOString()
+  }
+
+  if (replyTo) {
+    newRealMessage.replyTo = replyTo
   }
 
   let messageData
@@ -106,12 +110,20 @@ export async function sendVendorMessage(chatId, companyId, text) {
 // Mark messages as read for vendor
 export async function markMessagesAsReadForVendor(chatId) {
   // Update specific messages
-  return await supabase
+  const { error } = await supabase
     .from('messages')
     .update({ 
       vendor_unread_message_count: 0
     })
     .eq('chat_id', chatId)
+    
+  if (error) throw error;
+  
+  // Update chat so realtime listeners (like Sidebar) pick up the read status
+  return await supabase
+    .from('chats')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', chatId)
 }
 
 // Get existing chat or create a new one between company and user
@@ -144,4 +156,88 @@ export async function getOrCreateChat(companyId, userId) {
   if (insertError) throw insertError
 
   return newChat
+}
+
+// Delete an entire chat and all its messages
+export async function deleteChat(chatId) {
+  // Delete all messages associated with the chat first
+  const { error: messagesError } = await supabase
+    .from('messages')
+    .delete()
+    .eq('chat_id', chatId)
+    
+  if (messagesError) throw messagesError
+
+  // Delete the chat row itself
+  const { error: chatError } = await supabase
+    .from('chats')
+    .delete()
+    .eq('id', chatId)
+
+  if (chatError) throw chatError
+
+  return true
+}
+
+// Delete a specific message within a chat row
+export async function deleteMessage(rowId, messageIndex, deleteType) {
+  const { data: row, error: fetchError } = await supabase
+    .from('messages')
+    .select('real_messages')
+    .eq('id', rowId)
+    .single()
+
+  if (fetchError) throw fetchError
+
+  let messages = row.real_messages
+  if (typeof messages === 'string') {
+    try {
+      messages = JSON.parse(messages)
+    } catch (e) {
+      messages = [{ message: messages }]
+    }
+  }
+  
+  let parsedArray = []
+  if (Array.isArray(messages)) {
+    let chars = [];
+    let other = [];
+    messages.forEach(m => {
+      if (typeof m === 'string' && m.length === 1) chars.push(m);
+      else if (typeof m === 'string') other.push({ message: m });
+      else if (m !== null) other.push(m);
+    });
+    
+    if (chars.length > 0) {
+      const joined = chars.join('');
+      try {
+         const parsed = JSON.parse(joined);
+         if (Array.isArray(parsed)) other.unshift(...parsed);
+         else other.unshift(parsed);
+      } catch(e) {
+         other.unshift({ message: joined });
+      }
+    }
+    parsedArray = other;
+  } else {
+    parsedArray = [messages]
+  }
+
+  if (messageIndex >= 0 && messageIndex < parsedArray.length) {
+    const msg = parsedArray[messageIndex]
+    if (deleteType === 'me') {
+      msg.deletedForVendor = true
+    } else if (deleteType === 'everyone') {
+      msg.message = "🚫 This message was deleted"
+      msg.isDeleted = true
+    }
+  }
+
+  const { error: updateError } = await supabase
+    .from('messages')
+    .update({ real_messages: parsedArray })
+    .eq('id', rowId)
+
+  if (updateError) throw updateError
+  return true
 }

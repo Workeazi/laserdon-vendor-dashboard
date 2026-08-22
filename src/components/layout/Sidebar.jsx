@@ -7,7 +7,7 @@ import { useChats } from '../../controllers/chatController'
 export default function Sidebar({ isOpen, onClose }) {
   const { logout } = useAuth()
   const { unreadCount } = useNotifications()
-  const { totalUnreadMessages } = useChats()
+  const { totalUnreadMessages } = useChats(true) // Enable notifications ONLY here
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   const navItems = [

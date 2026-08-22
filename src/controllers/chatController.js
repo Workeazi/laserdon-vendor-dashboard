@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../models/supabaseClient'
 import { useVendor } from '../context/VendorContext'
 import { getChatsByCompany, getChatMessages, sendVendorMessage, markMessagesAsReadForVendor, getOrCreateChat, deleteChat } from '../models/chatModel'
+import toast from 'react-hot-toast'
 
-export function useChats() {
+export function useChats(enableNotifications = false) {
   const { vendorProfile } = useVendor()
   const [chats, setChats] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -80,6 +81,40 @@ export function useChats() {
     });
     return total + chatUnread;
   }, 0)
+
+  const isInitialLoad = useRef(true)
+  const [prevUnreadCount, setPrevUnreadCount] = useState(0)
+
+  useEffect(() => {
+    if (!enableNotifications) return; // Prevent double notifications if hook used in multiple components
+
+    if (isInitialLoad.current) {
+      if (!isLoading) {
+        isInitialLoad.current = false
+        setPrevUnreadCount(totalUnreadMessages)
+      }
+      return
+    }
+
+    if (totalUnreadMessages > prevUnreadCount) {
+      try {
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
+        audio.play().catch(e => console.log('Audio play failed', e))
+      } catch (e) {}
+      
+      toast('New message from customer!', {
+        icon: '💬',
+        style: {
+          borderRadius: '10px',
+          background: '#111b21',
+          color: '#e9edef',
+          border: '1px solid #2a3942'
+        },
+        duration: 4000
+      })
+    }
+    setPrevUnreadCount(totalUnreadMessages)
+  }, [totalUnreadMessages, isLoading, prevUnreadCount, enableNotifications])
 
   return { chats, isLoading, refetch: fetchChats, startNewChat, removeChat, totalUnreadMessages }
 }

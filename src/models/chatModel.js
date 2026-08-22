@@ -44,7 +44,17 @@ export async function sendVendorMessage(chatId, companyId, text) {
 
   if (existingRows && existingRows.length > 0) {
     const existingRow = existingRows[0]
-    const realMessages = existingRow.real_messages || []
+    let realMessages = existingRow.real_messages || []
+    if (typeof realMessages === 'string') {
+      try {
+        realMessages = JSON.parse(realMessages)
+      } catch (e) {
+        realMessages = [{ message: realMessages }]
+      }
+    }
+    if (Array.isArray(realMessages)) {
+      realMessages = realMessages.map(m => typeof m === 'string' ? { message: m } : m).filter(m => m !== null);
+    }
     const currentUnread = existingRow.user_unread_message_count || 0
     
     const { data: updateData, error: updateError } = await supabase

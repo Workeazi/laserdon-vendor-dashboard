@@ -46,7 +46,18 @@ function ChatList({ chats, activeChatId, onSelectChat, onNewChat }) {
             
             const msgRow = chat.messages && chat.messages.length > 0 ? chat.messages[0] : null;
             const unreadCount = msgRow?.vendor_unread_message_count || 0;
-            const realMessages = msgRow?.real_messages || [];
+            let realMessages = msgRow?.real_messages || [];
+            if (typeof realMessages === 'string') {
+              try {
+                realMessages = JSON.parse(realMessages);
+              } catch (e) {
+                realMessages = [{ message: realMessages }];
+              }
+            }
+            if (Array.isArray(realMessages)) {
+              // Convert any string items to objects to prevent losing them
+              realMessages = realMessages.map(m => typeof m === 'string' ? { message: m } : m).filter(m => m !== null);
+            }
             const lastMessage = realMessages.length > 0 ? realMessages[realMessages.length - 1].message : 'Started a conversation';
 
             return (
@@ -74,7 +85,7 @@ function ChatList({ chats, activeChatId, onSelectChat, onNewChat }) {
                       {lastMessage}
                     </p>
                     {unreadCount > 0 && (
-                      <div className="bg-[#00a884] text-white text-[11px] font-bold px-1.5 py-0.5 rounded-full ml-2 flex-shrink-0 min-w-[20px] text-center">
+                      <div className="bg-[#ef4444] text-white text-[11px] font-bold px-1.5 py-0.5 rounded-full ml-2 flex-shrink-0 min-w-[20px] text-center">
                         {unreadCount}
                       </div>
                     )}
@@ -271,10 +282,14 @@ export default function ChatPage() {
   const [activeChatId, setActiveChatId] = useState(null)
   const [isNewChatOpen, setIsNewChatOpen] = useState(false)
 
-  // Auto-select first chat if none selected
+  // Auto-select first unread chat, or first chat if none selected
   useEffect(() => {
     if (!activeChatId && chats.length > 0) {
-      setActiveChatId(chats[0].id)
+      const firstUnread = chats.find(c => {
+        const msgRow = c.messages && c.messages.length > 0 ? c.messages[0] : null;
+        return (msgRow?.vendor_unread_message_count || 0) > 0;
+      });
+      setActiveChatId(firstUnread ? firstUnread.id : chats[0].id)
     }
   }, [chats, activeChatId])
 

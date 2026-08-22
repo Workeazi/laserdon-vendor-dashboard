@@ -2,17 +2,19 @@ import React, { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../controllers/authController'
 import { useNotifications } from '../../controllers/notificationController'
+import { useChats } from '../../controllers/chatController'
 
 export default function Sidebar({ isOpen, onClose }) {
   const { logout } = useAuth()
   const { unreadCount } = useNotifications()
+  const { totalUnreadMessages } = useChats()
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   const navItems = [
     { to: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { to: '/drawings', label: 'Requests', icon: 'pending_actions', badge: unreadCount },
     { to: '/quotations', label: 'Quotations', icon: 'request_quote' },
-    { to: '/chat', label: 'Messages', icon: 'chat' },
+    { to: '/chat', label: 'Messages', icon: 'chat', badge: totalUnreadMessages, badgeColor: 'bg-error' },
     { to: '/customers', label: 'Customers', icon: 'group' },
     { to: '/payments', label: 'Payments', icon: 'account_balance_wallet' },
     { to: '/reports', label: 'Reports', icon: 'analytics' },
@@ -52,7 +54,7 @@ export default function Sidebar({ isOpen, onClose }) {
             </span>
             <span className="font-medium text-body-md flex-1">{item.label}</span>
               {item.badge > 0 && (
-              <span className="bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">
+              <span className={`${item.badgeColor || 'bg-primary'} text-white text-xs font-bold px-2 py-0.5 rounded-full`}>
                 {item.badge}
               </span>
             )}

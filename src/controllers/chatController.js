@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../models/supabaseClient'
 import { useVendor } from '../context/VendorContext'
 import { getChatsByCompany, getChatMessages, sendVendorMessage, markMessagesAsReadForVendor, getOrCreateChat } from '../models/chatModel'
@@ -28,7 +28,8 @@ export function useChats() {
     fetchChats()
 
     if (vendorProfile?.company_id) {
-      const channel = supabase.channel(`public:chats:company_${vendorProfile.company_id}`)
+      const channelId = `public:chats:company_${vendorProfile.company_id}_${Math.random().toString(36).substring(7)}`
+      const channel = supabase.channel(channelId)
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'chats', filter: `company_id=eq.${vendorProfile.company_id}` },
@@ -56,13 +57,23 @@ export function useChats() {
     }
   }
 
-  return { chats, isLoading, refetch: fetchChats, startNewChat }
+  const totalUnreadMessages = chats.reduce((total, chat) => {
+    const msgRow = chat.messages && chat.messages.length > 0 ? chat.messages[0] : null;
+    return total + (msgRow?.vendor_unread_message_count || 0);
+  }, 0)
+
+  return { chats, isLoading, refetch: fetchChats, startNewChat, totalUnreadMessages }
 }
 
 export function useChatMessages(chatId, onMarkAsRead) {
   const { vendorProfile } = useVendor()
   const [messages, setMessages] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const activeChatRef = useRef(chatId)
+
+  useEffect(() => {
+    activeChatRef.current = chatId
+  }, [chatId])
 
   const fetchMessages = async () => {
     if (!chatId) {
@@ -76,11 +87,23 @@ export function useChatMessages(chatId, onMarkAsRead) {
       let fetchedMessages = []
       if (data && data.length > 0) {
         data.forEach((row, rowIdx) => {
-          if (row.real_messages && row.real_messages.length > 0) {
-            const msgs = row.real_messages.map((m, idx) => ({
+          let realMessages = row.real_messages;
+          if (typeof realMessages === 'string') {
+            try {
+              realMessages = JSON.parse(realMessages);
+            } catch (e) {
+              realMessages = [{ message: realMessages }];
+            }
+          }
+          if (Array.isArray(realMessages)) {
+            realMessages = realMessages.map(m => typeof m === 'string' ? { message: m } : m).filter(m => m !== null);
+          }
+          
+          if (realMessages && realMessages.length > 0) {
+            const msgs = realMessages.map((m, idx) => ({
               id: `real_msg_${row.id}_${idx}`,
               text: m.message,
-              is_vendor: m.who === vendorProfile?.company_id,
+              is_vendor: String(m.who) === String(vendorProfile?.company_id),
               created_at: m.timestamp || row.created_at,
               sequence: rowIdx * 1000000 + idx
             }))
@@ -100,7 +123,10 @@ export function useChatMessages(chatId, onMarkAsRead) {
       // Sort messages by sequence ascending to preserve original array order
       fetchedMessages.sort((a, b) => a.sequence - b.sequence);
       
-      setMessages(fetchedMessages)
+      // Prevent race condition: only update state if we are still on the same chat
+      if (chatId === activeChatRef.current) {
+        setMessages(fetchedMessages)
+      }
 
       // Mark as read when fetching
       await markMessagesAsReadForVendor(chatId)
@@ -110,7 +136,9 @@ export function useChatMessages(chatId, onMarkAsRead) {
     } catch (error) {
       console.error('Error fetching messages:', error)
     } finally {
-      setIsLoading(false)
+      if (chatId === activeChatRef.current) {
+        setIsLoading(false)
+      }
     }
   }
 
@@ -120,7 +148,8 @@ export function useChatMessages(chatId, onMarkAsRead) {
     fetchMessages()
 
     if (chatId) {
-      const channel = supabase.channel(`public:messages:${chatId}`)
+      const channelId = `public:messages:${chatId}_${Math.random().toString(36).substring(7)}`
+      const channel = supabase.channel(channelId)
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },

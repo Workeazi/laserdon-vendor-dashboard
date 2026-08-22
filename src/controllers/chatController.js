@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../models/supabaseClient'
 import { useVendor } from '../context/VendorContext'
-import { getChatsByCompany, getChatMessages, sendVendorMessage, markMessagesAsReadForVendor, getOrCreateChat } from '../models/chatModel'
+import { getChatsByCompany, getChatMessages, sendVendorMessage, markMessagesAsReadForVendor, getOrCreateChat, deleteChat } from '../models/chatModel'
 
 export function useChats() {
   const { vendorProfile } = useVendor()
@@ -57,12 +57,31 @@ export function useChats() {
     }
   }
 
+  const removeChat = async (chatId) => {
+    try {
+      await deleteChat(chatId)
+      await fetchChats() // Refresh the list after deletion
+      return true
+    } catch (error) {
+      console.error('Error deleting chat:', error)
+      throw error
+    }
+  }
+
   const totalUnreadMessages = chats.reduce((total, chat) => {
-    const msgRow = chat.messages && chat.messages.length > 0 ? chat.messages[0] : null;
-    return total + (msgRow?.vendor_unread_message_count || 0);
+    if (!chat.messages || chat.messages.length === 0) return total;
+    let chatUnread = 0;
+    chat.messages.forEach(msgRow => {
+      let unreadCount = msgRow.vendor_unread_message_count;
+      if (unreadCount === null || unreadCount === undefined) {
+         unreadCount = 1;
+      }
+      chatUnread += unreadCount;
+    });
+    return total + chatUnread;
   }, 0)
 
-  return { chats, isLoading, refetch: fetchChats, startNewChat, totalUnreadMessages }
+  return { chats, isLoading, refetch: fetchChats, startNewChat, removeChat, totalUnreadMessages }
 }
 
 export function useChatMessages(chatId, onMarkAsRead) {
@@ -100,13 +119,19 @@ export function useChatMessages(chatId, onMarkAsRead) {
           }
           
           if (realMessages && realMessages.length > 0) {
-            const msgs = realMessages.map((m, idx) => ({
+            const msgs = realMessages.map((m, idx) => { const is_vendor = String(m.who) === String(vendorProfile?.company_id); return {
               id: `real_msg_${row.id}_${idx}`,
               text: m.message,
               is_vendor: String(m.who) === String(vendorProfile?.company_id),
               created_at: m.timestamp || row.created_at,
-              sequence: rowIdx * 1000000 + idx
-            }))
+              sequence: rowIdx * 1000000 + idx,
+              has_attachment: (!is_vendor && idx === 0) ? row.has_attachment : false,
+              attachment_name: (!is_vendor && idx === 0) ? row.attachment_name : null,
+              attachment_ref_id: (!is_vendor && idx === 0) ? row.attachment_ref_id : null,
+              replyTo: m.replyTo || null,
+              deletedForVendor: m.deletedForVendor || false,
+              isDeleted: m.isDeleted || false
+            }; }).filter(m => !m.deletedForVendor) // Filter out deleted for vendor
             fetchedMessages.push(...msgs)
           } else if (row.text) {
             fetchedMessages.push({
@@ -126,16 +151,22 @@ export function useChatMessages(chatId, onMarkAsRead) {
       // Prevent race condition: only update state if we are still on the same chat
       if (chatId === activeChatRef.current) {
         setMessages(fetchedMessages)
+        setIsLoading(false)
       }
 
-      // Mark as read when fetching
-      await markMessagesAsReadForVendor(chatId)
-      if (onMarkAsRead) {
-        onMarkAsRead()
+      // Mark as read when fetching ONLY if there are unread messages
+      // to prevent an infinite loop with realtime listeners
+      const hasUnread = data && data.some(row => row.vendor_unread_message_count === null || row.vendor_unread_message_count > 0);
+      if (hasUnread) {
+        // Fire and forget, don't await to block the UI
+        markMessagesAsReadForVendor(chatId).then(() => {
+          if (onMarkAsRead) {
+            onMarkAsRead()
+          }
+        }).catch(err => console.error(err))
       }
     } catch (error) {
       console.error('Error fetching messages:', error)
-    } finally {
       if (chatId === activeChatRef.current) {
         setIsLoading(false)
       }
@@ -165,9 +196,9 @@ export function useChatMessages(chatId, onMarkAsRead) {
     }
   }, [chatId, vendorProfile?.company_id])
 
-  const sendMessage = async (text) => {
+  const sendMessage = async (text, replyToData = null) => {
     try {
-      await sendVendorMessage(chatId, vendorProfile.company_id, text)
+      await sendVendorMessage(chatId, vendorProfile.company_id, text, replyToData)
       await fetchMessages() // Force UI update immediately
     } catch (error) {
       console.error('Error sending message:', error)
@@ -175,5 +206,21 @@ export function useChatMessages(chatId, onMarkAsRead) {
     }
   }
 
-  return { messages, isLoading, sendMessage, refetch: fetchMessages }
+  const deleteMsg = async (msgId, deleteType) => {
+    try {
+      // msgId format: real_msg_{rowId}_{idx}
+      const match = msgId.match(/^real_msg_(.+)_(.+)$/)
+      if (match) {
+        const rowId = match[1]
+        const idx = parseInt(match[2], 10)
+        await import('../models/chatModel').then(m => m.deleteMessage(rowId, idx, deleteType))
+        await fetchMessages()
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error)
+      throw error
+    }
+  }
+
+  return { messages, isLoading, sendMessage, deleteMsg, refetch: fetchMessages }
 }

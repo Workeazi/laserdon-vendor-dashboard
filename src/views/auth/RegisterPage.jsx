@@ -169,19 +169,28 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      // 1. Create Supabase Auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // 1. Create Supabase Auth user using Service Role Key to bypass email rate limits
+      const { createClient } = await import('@supabase/supabase-js');
+      const adminSupabase = createClient(
+        import.meta.env.VITE_SUPABASE_URL,
+        import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
+      );
+      
+      const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
         email: formData.email,
         password: formData.password,
-        options: {
-          data: {
-            full_name: formData.userName
-          }
+        email_confirm: true,
+        user_metadata: {
+          full_name: formData.userName
         }
       })
       
       if (authError) throw authError
       if (!authData.user) throw new Error("Failed to create user account.")
+
+      // 1.5 The database has a trigger that auto-creates a record in public.users for every signup.
+      // Since this is a vendor and not a customer, we must delete that mistakenly created record.
+      await adminSupabase.from('users').delete().eq('id', authData.user.id)
 
       const vendorId = authData.user.id;
       
@@ -265,7 +274,11 @@ export default function RegisterPage() {
       })
     } catch (error) {
       console.error('Error inserting vendor:', error)
-      alert(JSON.stringify(error) !== '{}' ? JSON.stringify(error) : (error.message || String(error) || 'Failed to register. Please try again.'))
+      if (error.status === 429 || error.code === 'over_email_send_rate_limit' || error?.message?.includes('rate limit')) {
+        alert("Supabase Security: Email rate limit exceeded. Please wait about an hour before attempting to register a new account, or contact the administrator.")
+      } else {
+        alert(JSON.stringify(error) !== '{}' ? JSON.stringify(error) : (error.message || String(error) || 'Failed to register. Please try again.'))
+      }
     } finally {
       setLoading(false)
     }

@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient'
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://iuhmswsjzqrxpvgravfi.supabase.co'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://cqcxcjadqlwajmznxnzx.supabase.co'
 const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SERVICE_KEY_HERE'
 // Fetch all chats for a vendor's company
 export async function getChatsByCompany(companyId) {

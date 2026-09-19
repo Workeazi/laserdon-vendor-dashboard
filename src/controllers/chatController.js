@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { supabase } from '../models/supabaseClient'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://iuhmswsjzqrxpvgravfi.supabase.co'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://cqcxcjadqlwajmznxnzx.supabase.co'
 const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SERVICE_KEY_HERE'
 
 import { useVendor } from '../context/VendorContext'

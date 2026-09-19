@@ -8,7 +8,7 @@ function supabaseProxyPlugin() {
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         if (req.url.startsWith('/supabase-api/')) {
-          const targetUrl = (process.env.VITE_SUPABASE_URL || 'https://iuhmswsjzqrxpvgravfi.supabase.co') + req.url.replace('/supabase-api', '');
+          const targetUrl = (process.env.VITE_SUPABASE_URL || 'https://cqcxcjadqlwajmznxnzx.supabase.co') + req.url.replace('/supabase-api', '');
           
           const headersToKeep = {};
           for (const [key, value] of Object.entries(req.headers)) {

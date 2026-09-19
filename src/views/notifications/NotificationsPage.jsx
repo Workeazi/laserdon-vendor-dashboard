@@ -1,10 +1,18 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../controllers/notificationController';
 
 export default function NotificationsPage() {
-    const { notifications, markAsRead } = useNotifications();
+    const { notifications, markAsRead, markAllRead } = useNotifications();
     const navigate = useNavigate();
+
+    // The Motion Sensor: This instantly clears the red badge when the page opens!
+    useEffect(() => {
+        if (markAllRead) {
+            markAllRead();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <div className="space-y-stack_space max-w-[1500px] mx-auto">

@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient'
-
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://iuhmswsjzqrxpvgravfi.supabase.co'
+const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SERVICE_KEY_HERE'
 // Fetch all chats for a vendor's company
 export async function getChatsByCompany(companyId) {
   return await supabase
@@ -23,7 +24,7 @@ export async function getChatMessages(chatId) {
 }
 
 // Send a new message from the vendor
-export async function sendVendorMessage(chatId, companyId, text, replyTo = null) {
+export async function sendVendorMessage(chatId, companyId, text, replyTo = null, attachment = null) {
   // 1. Fetch existing messages row
   const { data: existingRows, error: fetchError } = await supabase
     .from('messages')
@@ -46,7 +47,8 @@ export async function sendVendorMessage(chatId, companyId, text, replyTo = null)
 
   let messageData
 
-  if (existingRows && existingRows.length > 0) {
+  // If there is an attachment, force creating a new row
+  if (existingRows && existingRows.length > 0 && !attachment) {
     const existingRow = existingRows[0]
     let realMessages = existingRow.real_messages || []
     if (typeof realMessages === 'string') {
@@ -61,32 +63,53 @@ export async function sendVendorMessage(chatId, companyId, text, replyTo = null)
     }
     const currentUnread = existingRow.user_unread_message_count || 0
     
-    const { data: updateData, error: updateError } = await supabase
-      .from('messages')
-      .update({
+        const response = await fetch(`/supabase-api/rest/v1/messages?id=eq.${existingRow.id}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': supabaseServiceKey,
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify({
         real_messages: [...realMessages, newRealMessage],
         is_read_user: false,
         user_unread_message_count: currentUnread + 1
       })
-      .eq('id', existingRow.id)
-      .select()
-      .single()
+    });
+    if (!response.ok) throw new Error(await response.text());
+    const data = await response.json();
+    let updateData = data[0];
+    let updateError = null;
 
     if (updateError) throw updateError
     messageData = updateData
   } else {
     // 1. Insert message
-    const { data: insertData, error: insertError } = await supabase
-      .from('messages')
-      .insert([{
+        // Use Vite proxy to bypass Supabase CORS Origin blocks for Service Key
+    const response = await fetch(`/supabase-api/rest/v1/messages`, {
+      method: 'POST',
+      headers: {
+        'apikey': supabaseServiceKey,
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify({
         chat_id: chatId,
         vendor_unread_message_count: 0,
         is_read_user: false,
         user_unread_message_count: 1,
-        real_messages: [newRealMessage]
-      }])
-      .select()
-      .single()
+        real_messages: [newRealMessage],
+        has_attachment: attachment ? true : false,
+        attachment_name: attachment ? attachment.name : null,
+        attachment_ref_id: attachment ? attachment.url : null
+      })
+    });
+    if (!response.ok) throw new Error(await response.text());
+    const data = await response.json();
+    let insertData = data[0];
+    let insertError = null;
 
     if (insertError) throw insertError
     messageData = insertData
@@ -158,24 +181,65 @@ export async function getOrCreateChat(companyId, userId) {
   return newChat
 }
 
-// Delete an entire chat and all its messages
+// Delete an entire chat and all its messages (clear chat for vendor only)
 export async function deleteChat(chatId) {
-  // Delete all messages associated with the chat first
-  const { error: messagesError } = await supabase
+  // Instead of deleting the chat, mark all messages as deletedForVendor
+  const { data: messagesRows, error: fetchError } = await supabase
     .from('messages')
-    .delete()
+    .select('id, real_messages')
     .eq('chat_id', chatId)
     
-  if (messagesError) throw messagesError
+  if (fetchError) throw fetchError
 
-  // Delete the chat row itself
-  const { error: chatError } = await supabase
-    .from('chats')
-    .delete()
-    .eq('id', chatId)
-
-  if (chatError) throw chatError
-
+  if (messagesRows && messagesRows.length > 0) {
+    for (const row of messagesRows) {
+      let messages = row.real_messages
+      if (typeof messages === 'string') {
+        try {
+          messages = JSON.parse(messages)
+        } catch (e) {
+          messages = [{ message: messages }]
+        }
+      }
+      
+      let parsedArray = []
+      if (Array.isArray(messages)) {
+        let chars = [];
+        let other = [];
+        messages.forEach(m => {
+          if (typeof m === 'string' && m.length === 1) chars.push(m);
+          else if (typeof m === 'string') other.push({ message: m });
+          else if (m !== null) other.push(m);
+        });
+        if (chars.length > 0) {
+          const joined = chars.join('');
+          try {
+             const parsed = JSON.parse(joined);
+             if (Array.isArray(parsed)) other.unshift(...parsed);
+             else other.unshift(parsed);
+          } catch(e) {
+             other.unshift({ message: joined });
+          }
+        }
+        parsedArray = other;
+      } else {
+        parsedArray = [messages]
+      }
+      
+      const newRealMessages = parsedArray.map(m => ({
+        ...m,
+        deletedForVendor: true
+      }))
+      
+      const { error: updateError } = await supabase
+        .from('messages')
+        .update({ real_messages: newRealMessages })
+        .eq('id', row.id)
+        
+      if (updateError) throw updateError
+    }
+  }
+  
   return true
 }
 
@@ -229,7 +293,7 @@ export async function deleteMessage(rowId, messageIndex, deleteType) {
       msg.deletedForVendor = true
     } else if (deleteType === 'everyone') {
       msg.message = "🚫 This message was deleted"
-      msg.isDeleted = true
+      msg.is_deleted = true
     }
   }
 
@@ -241,3 +305,4 @@ export async function deleteMessage(rowId, messageIndex, deleteType) {
   if (updateError) throw updateError
   return true
 }
+

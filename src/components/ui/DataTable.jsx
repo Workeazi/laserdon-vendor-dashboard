@@ -50,7 +50,7 @@ export default function DataTable({ columns, rows, onRowClick, isLoading }) {
               onClick={() => onRowClick && onRowClick(row)}
             >
               {columns.map((col) => (
-                <td key={`${row.id}-${col.key}`} className="px-6 py-4 whitespace-nowrap">
+                <td key={`${row.id}-${col.key}`} className="px-6 py-4">
                   {col.render ? col.render(row) : row[col.key]}
                 </td>
               ))}

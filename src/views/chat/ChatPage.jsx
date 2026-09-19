@@ -33,17 +33,20 @@ function ChatList({ chats, activeChatId, onSelectChat, onNewChat }) {
       </div>
       
       {/* Search Bar Area */}
-      <div className="px-3 py-2 bg-white border-b border-outline-variant/30">
-        <div className="bg-[#f0f2f5] rounded-lg px-4 py-1.5 flex items-center gap-4">
+      <div className="px-3 py-2 bg-white flex items-center gap-2 border-b border-outline-variant/20">
+        <div className="bg-[#f0f2f5] rounded-lg px-3 py-1.5 flex items-center gap-3 flex-1">
           <span className="material-symbols-outlined text-[18px] text-[#54656f]">search</span>
           <input 
             type="text" 
             placeholder="Search or start new chat" 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-transparent border-none outline-none text-sm w-full text-[#111b21] placeholder:text-[#54656f]" 
+            className="bg-transparent border-none outline-none text-[15px] w-full text-[#111b21] placeholder:text-[#54656f]" 
           />
         </div>
+        <button className="text-[#54656f] hover:bg-[#f0f2f5] p-1.5 rounded-full transition-colors flex items-center justify-center">
+          <span className="material-symbols-outlined text-[20px]">filter_list</span>
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -82,7 +85,7 @@ function ChatList({ chats, activeChatId, onSelectChat, onNewChat }) {
               realMessages.forEach(m => {
                 if (typeof m === 'string' && m.length === 1) chars.push(m);
                 else if (typeof m === 'string') other.push({ message: m });
-                else if (m !== null) other.push(m);
+                else if (m !== null && !m.deletedForVendor) other.push(m);
               });
               
               if (chars.length > 0) {
@@ -103,14 +106,14 @@ function ChatList({ chats, activeChatId, onSelectChat, onNewChat }) {
               <div 
                 key={chat.id}
                 onClick={() => onSelectChat(chat.id)}
-                className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${
+                className={`flex items-center pl-3 cursor-pointer transition-colors ${
                   isActive ? 'bg-[#f0f2f5]' : 'bg-white hover:bg-[#f5f6f6]'
                 }`}
               >
-                <div className="w-[49px] h-[49px] rounded-full bg-[#dfe5e7] flex items-center justify-center text-[#54656f] font-bold text-xl flex-shrink-0">
+                <div className="w-[49px] h-[49px] rounded-full bg-[#dfe5e7] flex items-center justify-center text-[#54656f] font-bold text-xl flex-shrink-0 mr-3">
                   {initial}
                 </div>
-                <div className="flex-1 min-w-0 border-b border-outline-variant/20 pb-3 pt-1">
+                <div className="flex-1 min-w-0 border-b border-outline-variant/20 pr-4 py-3">
                   <div className="flex justify-between items-baseline mb-0.5">
                     <h3 className="text-[17px] text-[#111b21] truncate leading-tight">{customerName}</h3>
                     {chat.updated_at && (
@@ -146,6 +149,9 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead, onDeleteChat }) {
   const [activeMessageMenu, setActiveMessageMenu] = useState(null)
   const [replyingTo, setReplyingTo] = useState(null)
   const messagesEndRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [isUploading, setIsUploading] = useState(false)
   const menuRef = useRef(null)
 
   const scrollToBottom = () => {
@@ -168,15 +174,24 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead, onDeleteChat }) {
 
   const handleSend = async (e) => {
     e.preventDefault()
-    if (!inputText.trim()) return
+    if (!inputText.trim() && !selectedFile) return
     const text = inputText.trim()
     setInputText('')
+    setIsUploading(true)
     try {
-      await sendMessage(text, replyingTo ? { id: replyingTo.id, text: replyingTo.text, is_vendor: replyingTo.is_vendor } : null)
+      await sendMessage(
+        text, 
+        replyingTo ? { id: replyingTo.id, text: replyingTo.text, is_vendor: replyingTo.is_vendor } : null,
+        selectedFile
+      )
       setReplyingTo(null)
+      setSelectedFile(null)
     } catch (err) {
       console.error(err)
       setInputText(text) // Restore on failure
+      alert('Failed to send message: ' + (err.message || JSON.stringify(err)))
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -222,17 +237,18 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead, onDeleteChat }) {
   const initial = customerName.charAt(0).toUpperCase()
 
   return (
-    <div className="flex-1 flex flex-col h-full min-w-0 min-h-0 relative border-l border-[#222e35]/30" style={{backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', backgroundRepeat: 'repeat', backgroundSize: '400px', backgroundBlendMode: 'overlay', backgroundColor: '#0b141a'}}>
+    <div className="flex-1 flex flex-col h-full min-w-0 min-h-0 relative border-l border-outline-variant/30 bg-[#efeae2]">
+      <div className="absolute inset-0 z-0 opacity-40 pointer-events-none" style={{backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', backgroundRepeat: 'repeat', backgroundSize: '400px'}}></div>
       
       {/* Chat Header */}
-      <div className="h-16 px-4 bg-[#111b21] border-b border-[#222e35] flex items-center gap-4 shrink-0 z-10 shadow-sm">
-        <div className="w-[40px] h-[40px] rounded-full bg-[#202c33] flex items-center justify-center text-[#e9edef] font-bold text-lg flex-shrink-0">
+      <div className="h-16 px-4 bg-[#f0f2f5] border-b border-outline-variant/30 flex items-center gap-4 shrink-0 z-10 shadow-sm relative">
+        <div className="w-[40px] h-[40px] rounded-full bg-[#d1d7db] flex items-center justify-center text-[#54656f] font-bold text-lg flex-shrink-0">
           {initial}
         </div>
         <div className="flex-1">
-          <h2 className="text-[16px] font-medium text-[#e9edef]">{customerName}</h2>
+          <h2 className="text-[16px] font-medium text-[#111b21]">{customerName}</h2>
         </div>
-        <div className="flex gap-4 text-[#aebac1]">
+        <div className="flex gap-4 text-[#54656f]">
           <span className="material-symbols-outlined cursor-pointer">search</span>
           <div className="relative" ref={menuRef}>
             <span 
@@ -242,10 +258,10 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead, onDeleteChat }) {
               more_vert
             </span>
             {isMenuOpen && (
-              <div className="absolute right-0 top-8 w-40 bg-[#202c33] border border-[#2a3942] rounded-md shadow-lg z-50 overflow-hidden">
+              <div className="absolute right-0 top-8 w-40 bg-white border border-outline-variant/30 rounded-md shadow-lg z-50 overflow-hidden">
                 <button 
                   onClick={handleDeleteClick}
-                  className="w-full text-left px-4 py-3 text-sm text-[#e9edef] hover:bg-[#111b21] transition-colors"
+                  className="w-full text-left px-4 py-3 text-sm text-[#111b21] hover:bg-[#f0f2f5] transition-colors"
                 >
                   Delete chat
                 </button>
@@ -272,10 +288,10 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead, onDeleteChat }) {
               return (
                 <div key={msg.id} className={`flex ${isVendor ? 'justify-end' : 'justify-start'} ${isFirstInGroup ? 'mt-3' : 'mt-[2px]'}`}>
                   <div 
-                    className={`relative max-w-[65%] px-3 py-1.5 shadow-[0_1px_0.5px_rgba(11,20,26,.13)] group ${
+                    className={`relative max-w-[65%] px-3 py-1.5 shadow-sm group z-10 ${
                       isVendor 
-                        ? `bg-[#0084ff] text-white ${isFirstInGroup ? 'rounded-tl-[8px] rounded-bl-[8px] rounded-br-[8px] rounded-tr-none' : 'rounded-[8px]'}` 
-                        : `bg-[#202c33] text-[#e9edef] ${isFirstInGroup ? 'rounded-tr-[8px] rounded-br-[8px] rounded-bl-[8px] rounded-tl-none' : 'rounded-[8px]'}`
+                        ? `bg-[#d9fdd3] text-[#111b21] ${isFirstInGroup ? 'rounded-tl-[8px] rounded-bl-[8px] rounded-br-[8px] rounded-tr-none' : 'rounded-[8px]'}` 
+                        : `bg-white text-[#111b21] ${isFirstInGroup ? 'rounded-tr-[8px] rounded-br-[8px] rounded-bl-[8px] rounded-tl-none' : 'rounded-[8px]'}`
                     }`}
                   >
                     {/* Message Action Menu */}
@@ -288,10 +304,10 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead, onDeleteChat }) {
                            <span className="material-symbols-outlined text-[20px]">expand_more</span>
                          </button>
                          {activeMessageMenu === msg.id && (
-                           <div className="absolute right-0 top-6 w-44 bg-[#202c33] border border-[#2a3942] rounded-md shadow-lg z-50 overflow-hidden text-[#e9edef] text-sm">
-                             <button onClick={() => { setReplyingTo(msg); setActiveMessageMenu(null); }} className="w-full text-left px-4 py-2 hover:bg-[#111b21] transition-colors">Reply</button>
-                             <button onClick={() => { deleteMsg(msg.id, 'me'); setActiveMessageMenu(null); }} className="w-full text-left px-4 py-2 hover:bg-[#111b21] transition-colors">Delete for me</button>
-                             {isVendor && <button onClick={() => { deleteMsg(msg.id, 'everyone'); setActiveMessageMenu(null); }} className="w-full text-left px-4 py-2 hover:bg-[#111b21] text-[#ef4444] transition-colors">Delete for everyone</button>}
+                           <div className="absolute right-0 top-6 w-44 bg-white border border-outline-variant/30 rounded-md shadow-lg z-50 overflow-hidden text-[#111b21] text-sm">
+                             <button onClick={() => { setReplyingTo(msg); setActiveMessageMenu(null); }} className="w-full text-left px-4 py-2 hover:bg-[#f0f2f5] transition-colors">Reply</button>
+                             <button onClick={() => { deleteMsg(msg.id, 'me'); setActiveMessageMenu(null); }} className="w-full text-left px-4 py-2 hover:bg-[#f0f2f5] transition-colors">Delete for me</button>
+                             {isVendor && <button onClick={() => { deleteMsg(msg.id, 'everyone'); setActiveMessageMenu(null); }} className="w-full text-left px-4 py-2 hover:bg-[#f0f2f5] text-[#ef4444] transition-colors">Delete for everyone</button>}
                            </div>
                          )}
                       </div>
@@ -299,14 +315,14 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead, onDeleteChat }) {
 
                     {/* Tail SVG for first message in group */}
                     {isFirstInGroup && isVendor && (
-                      <div className="absolute top-0 right-[-8px] text-[#0084ff] w-[8px] h-[13px] z-10 pointer-events-none">
+                      <div className="absolute top-0 right-[-8px] text-[#d9fdd3] w-[8px] h-[13px] z-10 pointer-events-none">
                         <svg viewBox="0 0 8 13" width="8" height="13" className="w-full h-full">
                           <path fill="currentColor" d="M5.188 0H0v11.193l6.467-8.625C7.526 1.156 6.958 0 5.188 0z"></path>
                         </svg>
                       </div>
                     )}
                     {isFirstInGroup && !isVendor && (
-                      <div className="absolute top-0 left-[-8px] text-[#202c33] w-[8px] h-[13px] z-10 pointer-events-none">
+                      <div className="absolute top-0 left-[-8px] text-white w-[8px] h-[13px] z-10 pointer-events-none">
                         <svg viewBox="0 0 8 13" width="8" height="13" className="w-full h-full">
                           <path fill="currentColor" d="M2.812 0H8v11.193L1.533 2.568C.474 1.156 1.042 0 2.812 0z"></path>
                         </svg>
@@ -316,7 +332,7 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead, onDeleteChat }) {
                     <div className="flex flex-wrap items-end gap-2 mt-1">
                       <div className="flex flex-col gap-1 w-full max-w-full">
                         {msg.replyTo && !msg.isDeleted && (
-                          <div className={`rounded p-2 text-[13px] border-l-4 opacity-80 ${isVendor ? 'bg-black/10 border-white' : 'bg-[#111b21] border-[#00a884]'}`}>
+                          <div className={`rounded p-2 text-[13px] border-l-4 opacity-80 ${isVendor ? 'bg-black/5 border-[#128c7e]' : 'bg-[#f0f2f5] border-[#128c7e]'}`}>
                             <div className="font-semibold mb-0.5">{msg.replyTo.is_vendor ? 'You' : customerName}</div>
                             <div className="truncate">{msg.replyTo.text}</div>
                           </div>
@@ -340,11 +356,9 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead, onDeleteChat }) {
                           </p>
                         )}
                       </div>
-                      <span className={`text-[11px] leading-[15px] ml-auto pb-0.5 float-right whitespace-nowrap flex items-center gap-0.5 ${
-                        isVendor ? 'text-[#d1ebff]' : 'text-[#8696a0]'
-                      }`}>
+                      <span className={`text-[11px] leading-[15px] ml-auto pb-0.5 float-right whitespace-nowrap flex items-center gap-0.5 text-[#8696a0]`}>
                         {msg.created_at ? formatTime(msg.created_at) : ''}
-                        {isVendor && <span className="material-symbols-outlined text-[14px] text-white font-semibold">done_all</span>}
+                        {isVendor && <span className="material-symbols-outlined text-[14px] text-[#53bdeb] font-semibold">done_all</span>}
                       </span>
                     </div>
                   </div>
@@ -356,34 +370,68 @@ function ChatWindow({ chatId, activeChat, onMarkAsRead, onDeleteChat }) {
 
           {/* Input Area */}
           <div className="flex flex-col w-full relative z-30">
+            {selectedFile && (
+              <div className="bg-[#f0f2f5] px-4 py-3 flex items-center justify-between border-t border-outline-variant/30">
+                <div className="flex items-center gap-3 text-[#111b21]">
+                  <span className="material-symbols-outlined text-[24px] text-[#54656f]">description</span>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">{selectedFile.name}</span>
+                    <span className="text-xs text-[#54656f]">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                  className="text-[#54656f] hover:text-[#ef4444] p-2"
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+            )}
             {replyingTo && (
-              <div className="bg-[#202c33] px-4 py-2 border-l-4 border-[#00a884] flex justify-between items-center text-[#e9edef] border-t border-[#2a3942]">
+              <div className="bg-[#f0f2f5] px-4 py-2 border-l-4 border-[#00a884] flex justify-between items-center text-[#111b21] border-t border-outline-variant/30">
                 <div className="flex flex-col text-sm truncate pr-4">
                   <span className="font-semibold text-[#00a884]">{replyingTo.is_vendor ? 'You' : customerName}</span>
                   <span className="truncate opacity-80">{replyingTo.text}</span>
                 </div>
-                <button onClick={() => setReplyingTo(null)} className="text-[#8696a0] hover:text-[#e9edef]">
+                <button onClick={() => setReplyingTo(null)} className="text-[#54656f] hover:text-[#111b21]">
                   <span className="material-symbols-outlined text-[20px]">close</span>
                 </button>
               </div>
             )}
-            <div className="px-4 py-3 bg-[#111b21] flex items-center gap-4 shrink-0">
-            <span className="material-symbols-outlined text-[26px] text-[#8696a0] cursor-pointer rotate-45 transform">attach_file</span>
+            <div className="px-4 py-3 bg-[#f0f2f5] flex items-center gap-4 shrink-0 z-10">
+            <label className="cursor-pointer flex items-center mb-0">
+              <input 
+                type="file" 
+                className="hidden" 
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    setSelectedFile(e.target.files[0]);
+                  }
+                }} 
+              />
+              <span className="material-symbols-outlined text-[26px] text-[#54656f] rotate-45 transform hover:text-[#111b21]">
+                attach_file
+              </span>
+            </label>
             <form onSubmit={handleSend} className="flex-1">
               <input
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder="Type a message"
-                className="w-full bg-[#2a3942] border-none rounded-lg px-4 py-2.5 focus:outline-none text-[15px] text-[#e9edef] placeholder:text-[#8696a0] shadow-sm"
+                className="w-full bg-white border border-outline-variant/30 rounded-lg px-4 py-2.5 focus:outline-none text-[15px] text-[#111b21] placeholder:text-[#54656f] shadow-sm"
               />
             </form>
             <button
               onClick={handleSend}
-              disabled={!inputText.trim()}
-              className={`flex items-center justify-center transition-colors ${inputText.trim() ? 'text-[#8696a0] hover:text-[#0084ff]' : 'text-[#8696a0] opacity-50 cursor-not-allowed'}`}
+              disabled={(!inputText.trim() && !selectedFile) || isUploading}
+              className={`flex items-center justify-center transition-colors ${(inputText.trim() || selectedFile) && !isUploading ? 'text-[#54656f] hover:text-[#0084ff]' : 'text-[#54656f] opacity-50 cursor-not-allowed'}`}
             >
-              <span className="material-symbols-outlined text-[26px]">send</span>
+              {isUploading ? (
+                <div className="w-[26px] h-[26px] border-2 border-[#54656f] border-t-[#0084ff] rounded-full animate-spin"></div>
+              ) : (
+                <span className="material-symbols-outlined text-[26px]">send</span>
+              )}
             </button>
             </div>
           </div>
@@ -467,7 +515,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="fixed inset-0 lg:left-[260px] top-20 bg-white border-t border-outline-variant/60 flex overflow-hidden z-10">
+    <div className="flex bg-white overflow-hidden h-[calc(100vh-80px)] -mt-4 lg:-mt-[40px] -mx-4 lg:-mx-[40px] -mb-4 lg:-mb-[40px] relative z-10 border-t border-outline-variant/30">
       <ChatList 
         chats={chats} 
         activeChatId={activeChatId} 

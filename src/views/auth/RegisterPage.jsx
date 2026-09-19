@@ -38,6 +38,13 @@ function MapCenterUpdater({ position }) {
 }
 
 export default function RegisterPage() {
+  const [documents, setDocuments] = useState({
+    gst_certificate: null,
+    pan_card: null,
+    cancelled_cheque: null,
+    msme_certificate: null,
+    shop_license: null
+  })
   const [formData, setFormData] = useState({
     userName: '',
     organisationName: '',
@@ -116,6 +123,11 @@ export default function RegisterPage() {
       newErrors.industryType = "Please select an industry type."
     }
 
+    if (!documents.gst_certificate) newErrors.gst_certificate = "GST Certificate is required."
+    if (!documents.pan_card) newErrors.pan_card = "PAN Card is required."
+    if (!documents.cancelled_cheque) newErrors.cancelled_cheque = "Cancelled Cheque is required."
+
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -161,10 +173,38 @@ export default function RegisterPage() {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
+        options: {
+          data: {
+            full_name: formData.userName
+          }
+        }
       })
       
       if (authError) throw authError
       if (!authData.user) throw new Error("Failed to create user account.")
+
+      const vendorId = authData.user.id;
+      
+      // Upload documents
+      const uploadedUrls = {};
+      const uploadDoc = async (file, docType) => {
+          if (!file) return;
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${docType}_${Date.now()}.${fileExt}`;
+          const path = `${vendorId}/${fileName}`;
+          
+          const { error } = await supabase.storage.from('vendor_business_documents').upload(path, file, { upsert: true });
+          if (error) throw new Error(`Failed to upload ${docType}: ${error.message}`);
+          
+          const { data: publicUrlData } = supabase.storage.from('vendor_business_documents').getPublicUrl(path);
+          uploadedUrls[`${docType}_url`] = publicUrlData.publicUrl;
+      }
+
+      await uploadDoc(documents.gst_certificate, 'gst_certificate');
+      await uploadDoc(documents.pan_card, 'pan_card');
+      await uploadDoc(documents.cancelled_cheque, 'cancelled_cheque');
+      if (documents.msme_certificate) await uploadDoc(documents.msme_certificate, 'msme_certificate');
+      if (documents.shop_license) await uploadDoc(documents.shop_license, 'shop_license');
 
       // 2. Hash password
       const msgBuffer = new TextEncoder().encode(formData.password)
@@ -202,7 +242,13 @@ export default function RegisterPage() {
             company_id: companyId,
             status: 'pending',
             whatsapp_number: whatsappNumber,
-            alt_phone: formData.phoneNumber || null
+            alt_phone: formData.phoneNumber || null,
+            document_status: 'uploaded',
+            gst_certificate_url: uploadedUrls.gst_certificate_url || null,
+            pan_card_url: uploadedUrls.pan_card_url || null,
+            cancelled_cheque_url: uploadedUrls.cancelled_cheque_url || null,
+            msme_certificate_url: uploadedUrls.msme_certificate_url || null,
+            shop_license_url: uploadedUrls.shop_license_url || null
           }
         ])
 
@@ -219,7 +265,7 @@ export default function RegisterPage() {
       })
     } catch (error) {
       console.error('Error inserting vendor:', error)
-      alert(error.message || 'Failed to register. Please try again.')
+      alert(JSON.stringify(error) !== '{}' ? JSON.stringify(error) : (error.message || String(error) || 'Failed to register. Please try again.'))
     } finally {
       setLoading(false)
     }
@@ -450,8 +496,43 @@ export default function RegisterPage() {
                 </div>
               </div>
 
+              {/* Documents Section */}
+              <div className="sm:col-span-2 pt-6 border-t border-gray-200 mt-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Business Documents</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">GST Certificate (Required) <span className="text-red-500">*</span></label>
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setDocuments(p => ({...p, gst_certificate: e.target.files[0]}))} className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20 cursor-pointer" />
+                    {errors.gst_certificate && <p className="mt-1 text-sm text-red-600">{errors.gst_certificate}</p>}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">PAN Card (Required) <span className="text-red-500">*</span></label>
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setDocuments(p => ({...p, pan_card: e.target.files[0]}))} className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20 cursor-pointer" />
+                    {errors.pan_card && <p className="mt-1 text-sm text-red-600">{errors.pan_card}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Cancelled Cheque (Required) <span className="text-red-500">*</span></label>
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setDocuments(p => ({...p, cancelled_cheque: e.target.files[0]}))} className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20 cursor-pointer" />
+                    {errors.cancelled_cheque && <p className="mt-1 text-sm text-red-600">{errors.cancelled_cheque}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">MSME / Udyam Certificate (Optional)</label>
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setDocuments(p => ({...p, msme_certificate: e.target.files[0]}))} className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer" />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Shop & Establishment License (Optional)</label>
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setDocuments(p => ({...p, shop_license: e.target.files[0]}))} className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer" />
+                  </div>
+                </div>
+              </div>
+
               {/* Map Section */}
-              <div className="sm:col-span-2">
+              <div className="sm:col-span-2 pt-6 border-t border-gray-200 mt-2">
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-sm font-medium text-gray-700">Pin Office Location on Map</label>
                   <button

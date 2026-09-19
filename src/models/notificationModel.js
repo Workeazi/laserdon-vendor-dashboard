@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient'
 
 export async function getNotifications(vendorId) {
+
   return await supabase
     .from('notifications')
     .select('*')

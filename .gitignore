@@ -3,3 +3,9 @@ dist
 .env.local
 .env.*.local
 *.log
+
+.env
+debug_*
+patch*
+enable_*
+get_*

@@ -12,6 +12,8 @@ export default function DrawingsListPage() {
   const { data: drawings, isLoading } = useDrawings()
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState('date-newest')
+  const [dateFilter, setDateFilter] = useState('')
   const [selectedDrawingId, setSelectedDrawingId] = useState(null)
 
   const filteredDrawings = drawings?.filter(d => {
@@ -20,7 +22,27 @@ export default function DrawingsListPage() {
     const searchMatch = !search || 
       d.file_name?.toLowerCase().includes(search.toLowerCase()) || 
       d.users?.full_name?.toLowerCase().includes(search.toLowerCase())
-    return statusMatch && searchMatch
+    
+    let dateMatch = true
+    if (dateFilter) {
+      // Safely check if created_at exists and is valid
+      if (d.created_at) {
+        const requestDate = new Date(d.created_at).toISOString().split('T')[0]
+        dateMatch = (requestDate === dateFilter)
+      } else {
+        dateMatch = false
+      }
+    }
+
+    return statusMatch && searchMatch && dateMatch
+  }).sort((a, b) => {
+    if (sortBy === 'date-newest') {
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0)
+    }
+    if (sortBy === 'date-oldest') {
+      return new Date(a.created_at || 0) - new Date(b.created_at || 0)
+    }
+    return 0
   })
 
   return (
@@ -44,18 +66,48 @@ export default function DrawingsListPage() {
           ))}
         </div>
         
-        {/* Search Bar */}
-        <div className="relative group w-full md:w-80 flex-shrink-0">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary transition-colors">
-            <Search className="w-4 h-4" />
+        {/* Controls: Search, Sort, Date */}
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm shadow-sm h-[38px]"
+              title="Filter by Date"
+            />
+            {dateFilter && (
+              <button 
+                onClick={() => setDateFilter('')}
+                className="text-xs text-red-500 hover:text-red-700 font-medium whitespace-nowrap"
+              >
+                Clear Date
+              </button>
+            )}
           </div>
-          <input
-            type="text"
-            placeholder="Search files or customers..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 text-sm font-medium text-gray-900 placeholder-gray-400 shadow-sm"
-          />
+
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm shadow-sm h-[38px] cursor-pointer"
+          >
+            <option value="date-newest">Newest First</option>
+            <option value="date-oldest">Oldest First</option>
+          </select>
+
+          <div className="relative group flex-shrink-0 w-full md:w-64">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary transition-colors">
+              <Search className="w-4 h-4" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search files or customers..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 text-sm font-medium text-gray-900 placeholder-gray-400 shadow-sm h-[38px]"
+            />
+          </div>
         </div>
       </div>
 
@@ -96,7 +148,8 @@ export default function DrawingsListPage() {
                     </td>
                     <td className="py-4 px-6 text-sm font-medium">
                       <a 
-                        href={drawing.file_url} 
+                        href={drawing.file_url ? `${drawing.file_url}?download=` : '#'} 
+                        download
                         target="_blank" 
                         rel="noreferrer"
                         onClick={(e) => e.stopPropagation()}
@@ -120,7 +173,10 @@ export default function DrawingsListPage() {
                         className="p-2 bg-gray-50 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all duration-200"
                         title="View Details & Quote"
                       >
+                        <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-[18px]">edit</span>
+                        <span className="test-sm font-medium">Give Quote</span>
+                        </div>
                       </button>
                     </td>
                   </tr>

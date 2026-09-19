@@ -231,42 +231,51 @@ export default function ProfilePage() {
         </form>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-6">
         <div className="px-6 py-4 border-b bg-gray-50">
-          <h3 className="font-bold text-gray-800">Business Documents</h3>
-          <p className="text-xs text-gray-500">Upload your GST certificate or business registration docs.</p>
+          <h3 className="font-bold text-gray-800">Uploaded Business Documents</h3>
+          <p className="text-xs text-gray-500">View the documents you submitted during registration.</p>
         </div>
         <div className="p-6">
-          {(profile?.document_status === 'uploaded' || profile?.document_status === 'approved' || profile?.document_status === 'verified') ? (
-            <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg border border-gray-200">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="w-6 h-6 text-green-500" />
-                <div>
-                  <h4 className="font-medium text-gray-800">Document Uploaded</h4>
-                  <p className="text-xs text-gray-500">Your documents have been securely uploaded.</p>
+          <div className="space-y-4">
+            {[
+              { label: 'GST Certificate', url: profile?.gst_certificate_url, required: true },
+              { label: 'PAN Card', url: profile?.pan_card_url, required: true },
+              { label: 'Cancelled Cheque', url: profile?.cancelled_cheque_url, required: true },
+              { label: 'MSME / Udyam Certificate', url: profile?.msme_certificate_url, required: false },
+              { label: 'Shop & Establishment License', url: profile?.shop_license_url, required: false }
+            ].map((doc, idx) => (
+              <div key={idx} className="flex items-center justify-between bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-3">
+                  {doc.url ? (
+                    <CheckCircle className="w-6 h-6 text-green-500" />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full border-2 border-gray-300 flex items-center justify-center">
+                      <span className="text-[10px] text-gray-400">!</span>
+                    </div>
+                  )}
+                  <div>
+                    <h4 className="font-medium text-gray-800">
+                      {doc.label} {doc.required ? <span className="text-red-500">*</span> : <span className="text-gray-400 font-normal text-xs">(Optional)</span>}
+                    </h4>
+                    <p className="text-xs text-gray-500">
+                      {doc.url ? 'Document uploaded securely.' : 'Not provided'}
+                    </p>
+                  </div>
                 </div>
+                {doc.url && (
+                  <a 
+                    href={doc.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-blue-600 hover:bg-gray-50 transition-colors"
+                  >
+                    View Document
+                  </a>
+                )}
               </div>
-              <div className="relative">
-                <button type="button" className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                  Edit
-                </button>
-                <input 
-                  type="file" 
-                  className="absolute inset-0 opacity-0 cursor-pointer" 
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleDocumentUpload(file);
-                  }}
-                />
-              </div>
-            </div>
-          ) : (
-            <FileDropzone 
-              onDrop={handleDocumentUpload} 
-              accept={{ 'application/pdf': ['.pdf'], 'image/*': ['.jpg', '.jpeg', '.png'] }} 
-            />
-          )}
+            ))}
+          </div>
         </div>
       </div>
     </div>

@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
+import { createClient } from '@supabase/supabase-js'
 import { supabase } from '../models/supabaseClient'
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://iuhmswsjzqrxpvgravfi.supabase.co'
+const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SERVICE_KEY_HERE'
+
 import { useVendor } from '../context/VendorContext'
 import { getChatsByCompany, getChatMessages, sendVendorMessage, markMessagesAsReadForVendor, getOrCreateChat, deleteChat } from '../models/chatModel'
 import toast from 'react-hot-toast'
@@ -34,6 +39,13 @@ export function useChats(enableNotifications = false) {
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'chats', filter: `company_id=eq.${vendorProfile.company_id}` },
+          (payload) => {
+            fetchChats()
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'messages' },
           (payload) => {
             fetchChats()
           }
@@ -97,21 +109,26 @@ export function useChats(enableNotifications = false) {
     }
 
     if (totalUnreadMessages > prevUnreadCount) {
-      try {
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
-        audio.play().catch(e => console.log('Audio play failed', e))
-      } catch (e) {}
-      
-      toast('New message from customer!', {
-        icon: '💬',
-        style: {
-          borderRadius: '10px',
-          background: '#111b21',
-          color: '#e9edef',
-          border: '1px solid #2a3942'
-        },
-        duration: 4000
-      })
+      const now = Date.now();
+      const lastPlayed = parseInt(sessionStorage.getItem('lastNotificationSound') || '0', 10);
+      if (now - lastPlayed > 2000) {
+        sessionStorage.setItem('lastNotificationSound', now.toString());
+        try {
+          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
+          audio.play().catch(e => console.log('Audio play failed', e))
+        } catch (e) {}
+        
+        toast('New message from customer!', {
+          icon: '🔔',
+          style: {
+            borderRadius: '10px',
+            background: '#111b21',
+            color: '#e9edef',
+            border: '1px solid #2a3942'
+          },
+          duration: 4000
+        })
+      }
     }
     setPrevUnreadCount(totalUnreadMessages)
   }, [totalUnreadMessages, isLoading, prevUnreadCount, enableNotifications])
@@ -160,12 +177,12 @@ export function useChatMessages(chatId, onMarkAsRead) {
               is_vendor: String(m.who) === String(vendorProfile?.company_id),
               created_at: m.timestamp || row.created_at,
               sequence: rowIdx * 1000000 + idx,
-              has_attachment: (!is_vendor && idx === 0) ? row.has_attachment : false,
-              attachment_name: (!is_vendor && idx === 0) ? row.attachment_name : null,
-              attachment_ref_id: (!is_vendor && idx === 0) ? row.attachment_ref_id : null,
+              has_attachment: ((idx === 0) ? row.has_attachment : false) || !!m.attachment,
+              attachment_name: m.attachment ? m.attachment.name : ((idx === 0) ? row.attachment_name : null),
+              attachment_ref_id: m.attachment ? m.attachment.url : ((idx === 0) ? row.attachment_ref_id : null),
               replyTo: m.replyTo || null,
               deletedForVendor: m.deletedForVendor || false,
-              isDeleted: m.isDeleted || false
+              isDeleted: m.isDeleted || m.is_deleted || false
             }; }).filter(m => !m.deletedForVendor) // Filter out deleted for vendor
             fetchedMessages.push(...msgs)
           } else if (row.text) {
@@ -220,6 +237,18 @@ export function useChatMessages(chatId, onMarkAsRead) {
           'postgres_changes',
           { event: '*', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` },
           (payload) => {
+            // Check if it's a new unread message (even if we are about to mark it read)
+            if (payload.new && payload.new.vendor_unread_message_count > 0) {
+              const now = Date.now();
+              const lastPlayed = parseInt(sessionStorage.getItem('lastNotificationSound') || '0', 10);
+              if (now - lastPlayed > 2000) {
+                sessionStorage.setItem('lastNotificationSound', now.toString());
+                try {
+                  const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
+                  audio.play().catch(e => console.log('Audio play failed', e))
+                } catch (e) {}
+              }
+            }
             fetchMessages()
           }
         )
@@ -231,9 +260,36 @@ export function useChatMessages(chatId, onMarkAsRead) {
     }
   }, [chatId, vendorProfile?.company_id])
 
-  const sendMessage = async (text, replyToData = null) => {
+  const sendMessage = async (text, replyToData = null, attachmentFile = null) => {
     try {
-      await sendVendorMessage(chatId, vendorProfile.company_id, text, replyToData)
+      let attachment = null;
+      
+      if (attachmentFile) {
+        const fileExt = attachmentFile.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `${chatId}/${fileName}`;
+        
+        // Use Vite proxy to bypass Supabase CORS Origin blocks for Service Key
+        const uploadResponse = await fetch(`/supabase-api/storage/v1/object/chat_attachments/${filePath}`, {
+          method: 'POST',
+          headers: {
+            'apikey': supabaseServiceKey,
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'Content-Type': attachmentFile.type || 'application/octet-stream'
+          },
+          body: attachmentFile
+        });
+        if (!uploadResponse.ok) throw new Error(await uploadResponse.text());
+        
+        const publicUrl = `${supabaseUrl}/storage/v1/object/public/chat_attachments/${filePath}`;
+        
+        attachment = {
+          name: attachmentFile.name,
+          url: publicUrl
+        };
+      }
+      
+      await sendVendorMessage(chatId, vendorProfile.company_id, text, replyToData, attachment)
       await fetchMessages() // Force UI update immediately
     } catch (error) {
       console.error('Error sending message:', error)

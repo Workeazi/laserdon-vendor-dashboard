@@ -170,7 +170,8 @@ export default function DrawingDetailModal({ drawingId: propDrawingId, onClose }
                 <h3 className="text-[16px] font-semibold">Attached Drawing</h3>
               </div>
               <a 
-                href={drawing.file_url}
+                href={drawing.file_url ? `${drawing.file_url}?download=` : '#'}
+                download
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-[11px] font-semibold hover:bg-gray-50 transition-all text-gray-700"
